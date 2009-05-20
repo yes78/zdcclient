@@ -6,4 +6,11 @@ then
 fi
 
 ./zdclient -u username -p password -d 202.96.128.1 -g 172.18.18.254 -b
+
+#若使用DHCP，把以下四行的#去掉
+#if [ $? -eq 0 ]
+#then
+#	dhclient
+#fi
+
 exit 0

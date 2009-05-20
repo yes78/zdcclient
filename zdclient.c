@@ -37,6 +37,8 @@
 #include <unistd.h>
 #include "md5.h"
 
+#include <assert.h>
+
 /* ZDClient Version */
 #define ZDC_VER "0.3"
 
@@ -114,8 +116,14 @@ int         background = 0;            /* switch var if fork to backg.*/
 char        *dev = NULL;               /* capture device name */
 char        *username = NULL;          
 char        *password = NULL;
+
 char        *gateway = NULL;
 char        *dns = NULL;
+char        *user_ip = NULL;
+char        *user_mask = NULL;
+
+int        specfied_ip;
+int        specfied_mask;
 
 int         username_length;
 int         password_length;
@@ -137,6 +145,8 @@ u_char      *eap_response_md5ch;
 u_int       live_count = 0;
 pid_t       current_pid = 0;
 
+
+
 /* Option struct for progrm run arguments */
 static struct option long_options[] =
     {
@@ -147,6 +157,8 @@ static struct option long_options[] =
     {"ver",         required_argument,  0,              3},
     {"username",    required_argument,  0,              'u'},
     {"password",    required_argument,  0,              'p'},
+    {"ip",          required_argument,  0,              4},
+    {"mask",        required_argument,  0,              5},
     {"gateway",     required_argument,  0,              'g'},
     {"dns",         required_argument,  0,              'd'},
     {0, 0, 0, 0}
@@ -176,15 +188,19 @@ show_usage()
             "  Necessary Arguments:\n\n"
             "\t-u, --username           Your username.\n"
             "\t-p, --password           Your password.\n"
-            "\t-g, --gateway            Your Gateway Server Address.\n"
-            "\t-d, --dns                Your DNS Server Address.\n"
+            "\t-g, --gateway            Gateway Server. You may leave empty.\n"
+            "\t-d, --dns                DNS Server. You may leave empty.\n"
             "\n"
             "  Optional Arguments:\n\n"
             "\t--device                 Specify which device to use.\n"
             "\t                         Default is usually eth0.\n\n"
-            "\t--dhcp                   Use this if your ISP requests.\n"
+            "\t--dhcp                   Use DHCP mode if your ISP requests.\n"
             "\t                         You may need to run `dhclient' manualy\n"
             "\t                           after successful authentication.\n\n"
+            "\t--ip                     With DHCP mode on, program need to send \n"
+            "\t--mask                   packet to the server with an ip and mask, use \n"
+            "\t                         this arguments to specify them, or program will\n"
+            "\t                         use a default pseudo one. \n\n"
             "\t-b, --background         Program fork background after initializtion.\n\n"
             "\t-h, --help               Show this help.\n\n"
             "\t--ver                    Specify a client version. \n"
@@ -200,7 +216,7 @@ show_usage()
             "\tiontship with Digital China company.\n\n\n"
             
             "\tAnother PT work. Blog: http://apt-blog.co.cc\n"
-            "\t\t\t\t\t\t\t\t2009.05.19\n",
+            "\t\t\t\t\t\t\t\t2009.05.20\n",
             ZDC_VER);
 }
 
@@ -474,41 +490,70 @@ fill_password_md5(u_char attach_key[])
 
 void init_info()
 {
-    if(gateway != NULL)
-        local_gateway = inet_addr(gateway);
-    if(dns != NULL)  
-        local_dns = inet_addr(dns);
     if(username == NULL || password == NULL){
-        fprintf (stderr,"Error: Username or Password not promoted.\n"
-                        "  type ZDC_Client --help for usage.\n");
-        exit(1);
+        fprintf (stderr,"Error: NO Username or Password promoted.\n"
+                        "Try zdclient --help for usage.\n");
+        exit(EXIT_FAILURE);
     }
+    username_length = strlen(username);
+    password_length = strlen(password);
+
+    if (dhcp_on){
+        if (user_ip == NULL){
+            fprintf (stderr,"&&Info:DHCP Modol On with NO IP specified.\n"
+                            " Use default pseudo IP `169.254.216.45'.\n");
+            user_ip = "169.254.216.45";
+        }
+        if (user_mask == NULL) {
+            fprintf (stderr,"&&Info:DHCP Modol On with NO MASK specified.\n"
+                            " Use default MASK `255.255.0.0' .\n");
+            user_mask = "255.255.0.0";
+        }
+    }
+
+    if (user_ip)
+        local_ip = inet_addr (user_ip);
+    else 
+        local_ip = 0;
+
+    if (user_mask)
+        local_mask = inet_addr (user_mask);
+    else 
+        local_mask = 0;
+
+    if (gateway)
+        local_gateway = inet_addr (gateway);
+    else 
+        local_gateway = 0;
+
+    if (dns)
+        local_dns = inet_addr (dns);
+    else
+        local_dns = 0;
+
+    if (local_ip == -1 || local_mask == -1 || local_gateway == -1 || local_dns == -1) {
+        fprintf (stderr,"ERROR: One between IP, MASK, Gateway and DNS address format error.\n"
+                        "Use defaulf 0.0.0.0\n");
+        exit(EXIT_FAILURE);
+    }
+
     if(client_ver == NULL)
         client_ver = "3.5.04.1013fk";
     else{
         if (strlen (client_ver) > 13) {
-            fprintf (stderr, "Error: Specified client version string `%s' longer than 13 Bytes.\n"
+            fprintf (stderr, "Error: Specified client version `%s' longer than 13 Bytes.\n"
                     "Try `zdclient --help' for more information.\n", client_ver);
-            exit(1);
+            exit(EXIT_FAILURE);
         }
     }
-
-    if (local_gateway == -1 || local_dns == -1) {
-        fprintf (stderr,"Error: Gateway or DNS address not promoted or format error.\n"
-                        "Try `zdclient --help' for more information.\n");
-
-        exit(1);
-    }
-    username_length = strlen(username);
-    password_length = strlen(password);
 }
 
 void init_device()
 {
     struct bpf_program fp;			/* compiled filter program (expression) */
     char filter_exp[51];/* filter expression [3] */
-	bpf_u_int32 mask;			/* subnet mask */
-	bpf_u_int32 net;			/* ip */
+//	bpf_u_int32 mask;			/* subnet mask */
+//	bpf_u_int32 net;			/* ip */
 
     if(dev == NULL)
 	    dev = pcap_lookupdev(errbuf);
@@ -520,12 +565,15 @@ void init_device()
     }
 	
 	/* get network number and mask associated with capture device */
-	if (pcap_lookupnet(dev, &net, &mask, errbuf) == -1) {
-		fprintf(stderr, "ERROR: %s: %s\n",
-		    dev, errbuf);
-        exit(EXIT_FAILURE);
+    /*
+    if (!dhcp_on) {
+        if (pcap_lookupnet(dev, &net, &mask, errbuf) == -1) {
+            fprintf(stderr, "ERROR: %s: %s\n",
+                dev, errbuf);
+            exit(EXIT_FAILURE);
+        }
 	}
-
+*/
 	/* open capture device */
 	handle = pcap_open_live(dev, SNAP_LEN, 1, 1000, errbuf);
 
@@ -558,21 +606,23 @@ void init_device()
     }
     memcpy(local_mac, ifr.ifr_hwaddr.sa_data, ETHER_ADDR_LEN);
 
-    //获得IP
-    if(ioctl(sock, SIOCGIFADDR, &ifr) < 0)
-    {
-        perror("ioctl");
-        exit(EXIT_FAILURE);
-    }
-    local_ip = ((struct  sockaddr_in*)&ifr.ifr_addr)->sin_addr.s_addr;
+    if (!dhcp_on){
+        //静态方式时自动获得网卡IP
+        if(ioctl(sock, SIOCGIFADDR, &ifr) < 0)
+        {
+            perror("ioctl");
+            exit(EXIT_FAILURE);
+        }
+        local_ip = ((struct  sockaddr_in*)&ifr.ifr_addr)->sin_addr.s_addr;
 
-    //获得IP掩码
-    if(ioctl(sock, SIOCGIFNETMASK, &ifr) < 0)
-    {
-        perror("ioctl");
-        exit(EXIT_FAILURE);
+        //获得子网掩码
+        if(ioctl(sock, SIOCGIFNETMASK, &ifr) < 0)
+        {
+            perror("ioctl");
+            exit(EXIT_FAILURE);
+        }
+        local_mask = ((struct sockaddr_in*)&ifr.ifr_netmask)->sin_addr.s_addr;
     }
-    local_mask = ((struct sockaddr_in*)&ifr.ifr_netmask)->sin_addr.s_addr;
 
     /* construct the filter string */
     sprintf(filter_exp, "ether dst %02x:%02x:%02x:%02x:%02x:%02x"
@@ -582,7 +632,7 @@ void init_device()
                         local_mac[4], local_mac[5]);
 
 	/* compile the filter expression */
-	if (pcap_compile(handle, &fp, filter_exp, 0, net) == -1) {
+	if (pcap_compile(handle, &fp, filter_exp, 0, 0) == -1) {
 		fprintf(stderr, "Couldn't parse filter %s: %s\n",
 		    filter_exp, pcap_geterr(handle));
 		exit(EXIT_FAILURE);
@@ -616,18 +666,20 @@ int main(int argc, char **argv)
                         long_options, &option_index);
         if (c == -1)
             break;
-
         switch (c) {
             case 0:
-                 break;
+               break;
             case 'b':
                 background = 1;
                 break;
             case 2:
                 dev = optarg;
                 break;
-            case 3:
-                client_ver = optarg;
+            case 4:
+                user_ip = optarg;
+                break;
+            case 5:
+                user_mask = optarg;
                 break;
             case 'u':
                 username = optarg;

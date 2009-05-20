@@ -38,7 +38,7 @@
 #include "md5.h"
 
 /* ZDClient Version */
-#define ZDC_VER "0.2"
+#define ZDC_VER "0.3"
 
 /* default snap length (maximum bytes per packet to capture) */
 #define SNAP_LEN 1518
@@ -135,6 +135,7 @@ u_char      *eap_response_ident;
 u_char      *eap_response_md5ch;
 
 u_int       live_count = 0;
+pid_t       current_pid = 0;
 
 /* Option struct for progrm run arguments */
 static struct option long_options[] =
@@ -234,8 +235,8 @@ get_eap_type(const struct sniff_eap_header *eap_header)
                 return EAP_REQUEST_IDENTITY_KEEP_ALIVE;
             break;
         case 0x03:
-            if (eap_header->eap_ask_id == 0x02)
-                return EAP_SUCCESS;
+        //    if (eap_header->eap_ask_id == 0x02)
+            return EAP_SUCCESS;
             break;
         case 0x04:
             return EAP_FAILURE;
@@ -265,6 +266,7 @@ action_by_eap_type(enum EAPType pType,
                     exit(0);
                 }
             }
+            current_pid = getpid();     /* 取得当前进程PID */
             break;
         case EAP_FAILURE:
             state = READY;
@@ -294,8 +296,8 @@ action_by_eap_type(enum EAPType pType,
             break;
         case EAP_REQUEST_IDENTITY_KEEP_ALIVE:
             if (state == ONLINE){
-                printf("##Protocol: REQUEST EAP_REQUEST_IDENTITY_KEEP_ALIVE %d\n",
-                                            live_count++);
+                printf("[%d]##Protocol: REQUEST EAP_REQUEST_IDENTITY_KEEP_ALIVE (%d)\n",
+                                            current_pid,live_count++);
             }
             send_eap_packet(EAP_RESPONSE_IDENTITY_KEEP_ALIVE);
             break;
@@ -341,7 +343,7 @@ send_eap_packet(enum EAPType send_type)
             if (*(frame_data + 14 + 5) != 0x03){
                 *(frame_data + 14 + 5) = 0x03;
             }
-            printf("##Protocol: SEND EAP_RESPONSE_IDENTITY_KEEP_ALIVE\n");
+            printf("[%d]##Protocol: SEND EAP_RESPONSE_IDENTITY_KEEP_ALIVE\n", current_pid);
             break;
         default:
             fprintf(stderr,"ERROR: Wrong Send Request Type.%02x\n", send_type);
@@ -504,7 +506,7 @@ void init_info()
 void init_device()
 {
     struct bpf_program fp;			/* compiled filter program (expression) */
-    char filter_exp[] = "ether proto 0x888e";/* filter expression [3] */
+    char filter_exp[51];/* filter expression [3] */
 	bpf_u_int32 mask;			/* subnet mask */
 	bpf_u_int32 net;			/* ip */
 
@@ -524,8 +526,6 @@ void init_device()
         exit(EXIT_FAILURE);
 	}
 
-
-
 	/* open capture device */
 	handle = pcap_open_live(dev, SNAP_LEN, 1, 1000, errbuf);
 
@@ -540,31 +540,14 @@ void init_device()
 		exit(EXIT_FAILURE);
 	}
 
-	/* compile the filter expression */
-	if (pcap_compile(handle, &fp, filter_exp, 0, net) == -1) {
-		fprintf(stderr, "Couldn't parse filter %s: %s\n",
-		    filter_exp, pcap_geterr(handle));
-		exit(EXIT_FAILURE);
-	}
-
-	/* apply the compiled filter */
-	if (pcap_setfilter(handle, &fp) == -1) {
-		fprintf(stderr, "Couldn't install filter %s: %s\n",
-		    filter_exp, pcap_geterr(handle));
-		exit(EXIT_FAILURE);
-	}
-    pcap_freecode(&fp);
-
-
+    /* get device basic infomation */
     struct ifreq ifr;
     int sock;
-
     if((sock = socket(AF_INET, SOCK_DGRAM, 0)) < 0)
     {
         perror("socket");
         exit(EXIT_FAILURE);
     }
-
     strcpy(ifr.ifr_name, dev);
 
     //获得网卡Mac
@@ -590,6 +573,28 @@ void init_device()
         exit(EXIT_FAILURE);
     }
     local_mask = ((struct sockaddr_in*)&ifr.ifr_netmask)->sin_addr.s_addr;
+
+    /* construct the filter string */
+    sprintf(filter_exp, "ether dst %02x:%02x:%02x:%02x:%02x:%02x"
+                        " and ether proto 0x888e", 
+                        local_mac[0], local_mac[1],
+                        local_mac[2], local_mac[3],
+                        local_mac[4], local_mac[5]);
+
+	/* compile the filter expression */
+	if (pcap_compile(handle, &fp, filter_exp, 0, net) == -1) {
+		fprintf(stderr, "Couldn't parse filter %s: %s\n",
+		    filter_exp, pcap_geterr(handle));
+		exit(EXIT_FAILURE);
+	}
+
+	/* apply the compiled filter */
+	if (pcap_setfilter(handle, &fp) == -1) {
+		fprintf(stderr, "Couldn't install filter %s: %s\n",
+		    filter_exp, pcap_geterr(handle));
+		exit(EXIT_FAILURE);
+	}
+    pcap_freecode(&fp);
 }
 
 static void
@@ -656,7 +661,7 @@ int main(int argc, char **argv)
     signal (SIGINT, signal_interrupted);
     signal (SIGTERM, signal_interrupted);    
 
-    printf("\n######## ZDClient ver. %s #########\n", ZDC_VER);
+    printf("######## ZDClient ver. %s #########\n", ZDC_VER);
     printf("Device:     %s\n", dev);
     printf("MAC:        ");
     print_hex(local_mac, 6);

@@ -1,4 +1,4 @@
-ZDC_Client v0.1 Readme
+ZDC_Client v0.2 Readme
 
 编译：
 	编译需要libpcap库，一般Linux发行版里面安装libpcap-dev包即可，如ubuntu： sudo apt-get install libpcap-dev
@@ -8,14 +8,17 @@ ZDC_Client v0.1 Readme
 运行：
 	运行需要root权限，看例子即可：
 	
-	sudo ./ZDC_Client -u username -p password -g 172.18.18.254 -d 202.192.18.1 --background
+	sudo ./zdclient -u username -p password -g 172.18.18.254 -d 202.192.18.1 --background
 	
 	u、p、g、d分别是我的用户名、密码、网关地址和DNS服务器地址，--background参数可让程序进入后台运行，具体可以运行
-	./ZDC_Client --help查看
+	./zdclient --help查看
+	
+	压缩包内提供了一个启动脚本zdcrun，带检测root权限功能，用gedit等编辑软件修改其中的参数，即可达到保存资料的目的。
 	
 
 A PT Work. 
+
 Blog: http://apt-blog.co.cc
 GMail: pentie@gmail.com
 
-2009-05-18
+2009-05-19

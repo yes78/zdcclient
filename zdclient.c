@@ -1,3 +1,21 @@
+/*
+ * =====================================================================================
+ *
+ *       Filename:  zdclient.c
+ *
+ *    Description:  main source file for ZDClient
+ *
+ *        Version:  0.2
+ *        Created:  05/17/2009 05:38:56 PM
+ *       Revision:  none
+ *       Compiler:  gcc
+ *
+ *         Author:  PT<pentie@gmail.com>
+ *        Company:  http://apt-blog.co.cc
+ *
+ * =====================================================================================
+ */
+
 #include <pcap.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -19,6 +37,9 @@
 #include <unistd.h>
 #include "md5.h"
 
+/* ZDClient Version */
+#define ZDC_VER "0.2"
+
 /* default snap length (maximum bytes per packet to capture) */
 #define SNAP_LEN 1518
 
@@ -27,12 +48,11 @@
 
 /* Ethernet addresses are 6 bytes */
 #define ETHER_ADDR_LEN	6
-
 /* Ethernet header */
 struct sniff_ethernet {
-        u_char  ether_dhost[ETHER_ADDR_LEN];    /* destination host address */
-        u_char  ether_shost[ETHER_ADDR_LEN];    /* source host address */
-        u_short ether_type;                     /* IP? ARP? RARP? etc */
+    u_char  ether_dhost[ETHER_ADDR_LEN];    /* destination host address */
+    u_char  ether_shost[ETHER_ADDR_LEN];    /* source host address */
+    u_short ether_type;                     /* IP? ARP? RARP? etc */
 };
 
 struct sniff_eap_header {
@@ -40,7 +60,7 @@ struct sniff_eap_header {
     u_char eapol_t;
     u_short eapol_length;
     u_char eap_t;
-    u_char eap_ask_t;
+    u_char eap_ask_id;
     u_short eap_length;
     u_char eap_op;
     u_char eap_v_length;
@@ -48,39 +68,51 @@ struct sniff_eap_header {
 };
 
 enum EAPType {
-        EAPOL_START,
-        EAPOL_LOGOFF,
-        EAP_REQUEST_IDENTITY,
-        EAP_RESPONSE_IDENTITY,
-        EAP_REQUETS_MD5_CHALLENGE,
-        EAP_RESPONSE_MD5_CHALLENGE,
-        EAP_SUCCESS,
-        EAP_FAILURE,
-        ERROR
+    EAPOL_START,
+    EAPOL_LOGOFF,
+    EAP_REQUEST_IDENTITY,
+    EAP_RESPONSE_IDENTITY,
+    EAP_REQUEST_IDENTITY_KEEP_ALIVE,
+    EAP_RESPONSE_IDENTITY_KEEP_ALIVE,
+    EAP_REQUETS_MD5_CHALLENGE,
+    EAP_RESPONSE_MD5_CHALLENGE,
+    EAP_SUCCESS,
+    EAP_FAILURE,
+    ERROR
 };
 
 enum STATE {
-       READY,
-       STARTED,
-       ID_AUTHED,
-       ONLINE
+   READY,
+   STARTED,
+   ID_AUTHED,
+   ONLINE
 };
 
-void fill_password_md5(u_char attach_key[]);
-void send_eap_packet(enum EAPType send_type);
+void    fill_password_md5(u_char attach_key[]);
+void    send_eap_packet(enum EAPType send_type);
+void    show_usage();
+char*   get_md5_digest(const char* str, size_t len);
+void    action_by_eap_type(enum EAPType pType, 
+                        const struct sniff_eap_header *header);
+void    send_eap_packet(enum EAPType send_type);
+void    init_frames();
+void    init_info();
+void    init_device();
+void    fill_password_md5(u_char attach_key[]);
+
+static void signal_interrupted (int signo);
+static void get_packet(u_char *args, const struct pcap_pkthdr *header, 
+                        const u_char *packet);
 
 
-char *dev;			/* capture device name */
-char errbuf[PCAP_ERRBUF_SIZE];		/* error buffer */
+char        errbuf[PCAP_ERRBUF_SIZE];  /* error buffer */
+enum STATE  state;                     /* program state */
+pcap_t      *handle;				   /* packet capture handle */
 
-enum STATE state;
-
-pcap_t *handle;				/* packet capture handle */
-
-int         dhcp_on;
-int         background;
-char        *dev = NULL;
-char        *username = NULL;
+int         dhcp_on = 0;               /* switch var for dhcp */
+int         background;                /* switch var if fork to backg.*/     
+char        *dev = NULL;               /* capture device name */
+char        *username = NULL;          
 char        *password = NULL;
 char        *gateway = NULL;
 char        *dns = NULL;
@@ -88,12 +120,12 @@ char        *dns = NULL;
 int         username_length;
 int         password_length;
 
-//u_char      dhcp_on;
-u_int       local_ip;			/* ip */
-u_int       local_mask;			/* subnet mask */
+u_int       local_ip;			       /* ip */
+u_int       local_mask;			       /* subnet mask */
 u_int       local_gateway = -1;
 u_int       local_dns = -1;
-u_char      client_ver[] = "3.4.2006.1027";
+
+char        *client_ver = NULL;
 u_char      local_mac[ETHER_ADDR_LEN];
 u_char      muticast_mac[] = {0x01, 0x80, 0xc2, 0x00, 0x00, 0x03};
 
@@ -102,7 +134,7 @@ u_char      eapol_logoff[18];
 u_char      *eap_response_ident;
 u_char      *eap_response_md5ch;
 
-u_int         live_count = 0;
+u_int       live_count = 0;
 
 /* Option struct for progrm run arguments */
 static struct option long_options[] =
@@ -111,6 +143,7 @@ static struct option long_options[] =
     {"background",  no_argument,        &background,    1},
     {"dhcp",        no_argument,        &dhcp_on,       1},
     {"device",      required_argument,  0,              2},
+    {"ver",         required_argument,  0,              3},
     {"username",    required_argument,  0,              'u'},
     {"password",    required_argument,  0,              'p'},
     {"gateway",     required_argument,  0,              'g'},
@@ -133,7 +166,7 @@ void
 show_usage()
 {
     printf( "\n"
-            "ZDC Client 0.1 \n"
+            "ZDClient %s \n"
             "\t  -- Supllicant for DigiChina Authentication.\n"
             "\n"
             "  Usage:\n"
@@ -153,24 +186,26 @@ show_usage()
             "\t                           after successful authentication.\n\n"
             "\t-b, --background         Program fork background after initializtion.\n\n"
             "\t-h, --help               Show this help.\n\n"
-            "\n\n"
-            "  About ZDC Client:\n\n"
-            "\tThis program is a C implementation to DigiChina Authentication.\n"
-            "\tBy refering another Java program called `scut_supplicant', ZDC is\n"
-            "\t more light-weight. But the protocol research done by Yaoqi and \n"
-            "\tsome others was important to ZDC, greate thanks to them.\n\n"
-            
-            "\tZDC Client is a software developed individually, with NO relation\n"
-            "\t-ship to do with Digital China company.\n\n\n"
+            "\t--ver                    Specify a client version. \n"
+            "\t                         Default is `3.5.04.0324', older known versions\n"
+            "\t                          are `3.4.2006.1027', `3.4.2006.1229'\n"
+            "\t                         NO longer than 13 Bytes allowed.\n\n"
+            "\n"
+            "  About ZDClient:\n\n"
+            "\tThis program is a C implementation to DigiChina Authentication,\n"
+            "\twith a simple goal of replacing a Java `scut_supplicant' by Yaoqi.\n\n"
+
+            "\tZDC Client is a software developed individually, with NO any rela-\n"
+            "\tiontship with Digital China company.\n\n\n"
             
             "\tAnother PT work. Blog: http://apt-blog.co.cc\n"
-            "\t\t\t\t\t\t\t2009.05.18\n"
-            );
+            "\t\t\t\t\t\t\t\t2009.05.19\n",
+            ZDC_VER);
 }
 
 /* calcuate for md5 digest */
 char* 
-md5digest(const char* str, size_t len)
+get_md5_digest(const char* str, size_t len)
 {
 	md5_state_t state;
 	md5_byte_t digest[16];
@@ -184,23 +219,32 @@ md5digest(const char* str, size_t len)
 }
 
 enum EAPType 
-get_eap_type(u_char type, u_char reqType) 
+get_eap_type(const struct sniff_eap_header *eap_header) 
 {
-    switch(type){
+    switch (eap_header->eap_t){
         case 0x01:
-            switch(reqType){
-                case 0x01:
+            if (eap_header->eap_ask_id == 0x01 &&
+                            eap_header->eap_op == 0x01)
                     return EAP_REQUEST_IDENTITY;
-                case 0x04:
+            if (eap_header->eap_ask_id == 0x02 &&
+                            eap_header->eap_op == 0x04)
                     return EAP_REQUETS_MD5_CHALLENGE;
-            }
+            if (eap_header->eap_ask_id == 0x03 &&
+                            eap_header->eap_op == 0x01)
+                return EAP_REQUEST_IDENTITY_KEEP_ALIVE;
             break;
         case 0x03:
-            return EAP_SUCCESS;
+            if (eap_header->eap_ask_id == 0x02)
+                return EAP_SUCCESS;
+            break;
         case 0x04:
             return EAP_FAILURE;
     }
-    fprintf(stderr, "Error Package Type and TypeReq: %d %d\n", type, reqType);
+    fprintf(stderr, "Unknown Package : eap_t:      %02x\n"
+                    "                  eap_ask_id: %02x\n"
+                    "                  eap_op:     %02x\n", 
+                    eap_header->eap_t, eap_header->eap_ask_id,
+                    eap_header->eap_op);
     return ERROR;
 }
 
@@ -225,11 +269,7 @@ action_by_eap_type(enum EAPType pType,
             pcap_breakloop (handle);
             break;
         case EAP_REQUEST_IDENTITY:
-            if (state == ONLINE){
-                printf("##Protocol: REQUEST EAP-Identity - Keep Alive %d\n", 
-                                            live_count++);
-            }
-            else if (state == STARTED){
+            if (state == STARTED){
                 printf("##Protocol: REQUEST EAP-Identity\n");
             }
             send_eap_packet(EAP_RESPONSE_IDENTITY);
@@ -239,6 +279,14 @@ action_by_eap_type(enum EAPType pType,
             printf("##Protocol: REQUEST MD5-Challenge(PASSWORD)\n");
             fill_password_md5((u_char*)header->eap_md5_challenge);
             send_eap_packet(EAP_RESPONSE_MD5_CHALLENGE);
+            break;
+        case EAP_REQUEST_IDENTITY_KEEP_ALIVE:
+            if (state == ONLINE){
+                printf("##Protocol: REQUEST EAP_REQUEST_IDENTITY_KEEP_ALIVE %d\n",
+                                            live_count++);
+            }
+            send_eap_packet(EAP_RESPONSE_IDENTITY_KEEP_ALIVE);
+            break;
         default:
             return;
     }
@@ -248,7 +296,7 @@ void
 send_eap_packet(enum EAPType send_type)
 {
     u_char *frame_data;
-    int     frame_length;
+    int     frame_length = 0;
     switch(send_type){
         case EAPOL_START:
             state = STARTED;
@@ -265,6 +313,9 @@ send_eap_packet(enum EAPType send_type)
         case EAP_RESPONSE_IDENTITY:
             frame_data = eap_response_ident;
             frame_length = 14 + 9 + username_length + 46;
+            if (*(frame_data + 14 + 5) != 0x01){
+                *(frame_data + 14 + 5) = 0x01;
+            }
             printf("##Protocol: SEND EAP-Response/Identity\n");
             break;
         case EAP_RESPONSE_MD5_CHALLENGE:
@@ -272,8 +323,16 @@ send_eap_packet(enum EAPType send_type)
             frame_length = 14 + 10 + 16 + username_length + 46;
             printf("##Protocol: SEND EAP-Response/Md5-Challenge\n");
             break;
+        case EAP_RESPONSE_IDENTITY_KEEP_ALIVE:
+            frame_data = eap_response_ident;
+            frame_length = 14 + 9 + username_length + 46;
+            if (*(frame_data + 14 + 5) != 0x03){
+                *(frame_data + 14 + 5) = 0x03;
+            }
+            printf("##Protocol: SEND EAP_RESPONSE_IDENTITY_KEEP_ALIVE\n");
+            break;
         default:
-            fprintf(stderr,"ERROR: Wrong Send Request Type.\n");
+            fprintf(stderr,"ERROR: Wrong Send Request Type.%02x\n", send_type);
             return;
     }
     if (pcap_sendpacket(handle, frame_data, frame_length) != 0)
@@ -295,13 +354,13 @@ get_packet(u_char *args, const struct pcap_pkthdr *header,
     ethernet = (struct sniff_ethernet*)(packet);
     eap_header = (struct sniff_eap_header *)(packet + SIZE_ETHERNET);
 
-    enum EAPType p_type = get_eap_type(eap_header->eap_t, 
-                                               eap_header->eap_op);
+    enum EAPType p_type = get_eap_type(eap_header);
     action_by_eap_type(p_type, eap_header);
     return;
 }
 
-void init_frames()
+void 
+init_frames()
 {
     u_char *local_info = malloc(46);
     int data_index;
@@ -317,11 +376,12 @@ void init_frames()
     data_index += 4;
     memcpy(local_info + data_index, &local_dns, 4);
     data_index += 4;
-    char* username_md5 = md5digest(username, username_length);
+    char* username_md5 = get_md5_digest(username, username_length);
     memcpy(local_info + data_index, username_md5, 16);
     data_index += 16;
     free(username_md5);
-    memcpy(local_info + data_index, client_ver, 13);
+//    memcpy(local_info + data_index, client_ver, 13);
+    strncpy ((char*)local_info + data_index, client_ver, 13);
 
 
     /*****  EAPOL Header  *******/
@@ -353,6 +413,7 @@ void init_frames()
                                     0x01};
     
     eap_response_ident = malloc (14 + 9 + 46 + username_length);
+    memset(eap_response_ident, 0, 14 + 9 + 46 + username_length);
 
     data_index = 0;
     memcpy (eap_response_ident + data_index, eapol_header, 14);
@@ -390,7 +451,7 @@ fill_password_md5(u_char attach_key[])
     memcpy (psw_key + 1, password, password_length);
     memcpy (psw_key + 1 + password_length, attach_key, 16);
 
-    md5_challenge_key = md5digest(psw_key, 1 + password_length + 16);
+    md5_challenge_key = get_md5_digest(psw_key, 1 + password_length + 16);
     memcpy (eap_response_md5ch + 14 + 10, md5_challenge_key, 16);
 
     free (psw_key);
@@ -408,25 +469,31 @@ void init_info()
                         "  type ZDC_Client --help for usage.\n");
         exit(1);
     }
-
-    if (local_gateway == -1 || local_dns == -1) {
-        fprintf (stderr,"Error: Gateway or DNS address not promoted or format error.\n"
-                        "  type ZDC_Client --help for usage.\n");
-
-        exit(1);
-    }
-
-    username_length = strlen(username);
-    password_length = strlen(password);
-
-    if (background){
-        pid_t pID = fork();
-        if (pID != 0) {
-            fprintf(stderr, "&&Info: ZDC Forked background.\nPID:[%d]\n", pID);
-            exit(0);
+    if(client_ver == NULL)
+        client_ver = "3.5.04.0324";
+    else{
+        if (strlen (client_ver) > 13) {
+            fprintf (stderr, "Error: Specified client version string `%s' longer than 13 Bytes.\n"
+                    "Try `zdclient --help' for more information.\n", client_ver);
+            exit(1);
         }
     }
 
+    if (local_gateway == -1 || local_dns == -1) {
+        fprintf (stderr,"Error: Gateway or DNS address not promoted or format error.\n"
+                        "Try `zdclient --help' for more information.\n");
+
+        exit(1);
+    }
+    username_length = strlen(username);
+    password_length = strlen(password);
+    if (background){
+        pid_t pID = fork();
+        if (pID != 0) {
+            fprintf(stderr, "&&Info: ZDClient Forked background with PID: [%d]\n\n", pID);
+            exit(0);
+        }
+    }
 }
 
 void init_device()
@@ -548,6 +615,9 @@ int main(int argc, char **argv)
             case 2:
                 dev = optarg;
                 break;
+            case 3:
+                client_ver = optarg;
+                break;
             case 'u':
                 username = optarg;
                 break;
@@ -580,15 +650,16 @@ int main(int argc, char **argv)
     signal (SIGINT, signal_interrupted);
     signal (SIGTERM, signal_interrupted);    
 
-    printf("######## Device Info. #########\n");
-    printf("Device:   %s\n", dev);
-    printf("MAC:      ");
+    printf("\n######## ZDClient ver. %s #########\n", ZDC_VER);
+    printf("Device:     %s\n", dev);
+    printf("MAC:        ");
     print_hex(local_mac, 6);
-    printf("IP:       %s\n", inet_ntoa(*(struct in_addr*)&local_ip));
-    printf("MASK:     %s\n", inet_ntoa(*(struct in_addr*)&local_mask));
-    printf("Gateway:  %s\n", inet_ntoa(*(struct in_addr*)&local_gateway));
-    printf("DNS:      %s\n", inet_ntoa(*(struct in_addr*)&local_dns));
-    printf("###############################\n");
+    printf("IP:         %s\n", inet_ntoa(*(struct in_addr*)&local_ip));
+    printf("MASK:       %s\n", inet_ntoa(*(struct in_addr*)&local_mask));
+    printf("Gateway:    %s\n", inet_ntoa(*(struct in_addr*)&local_gateway));
+    printf("DNS:        %s\n", inet_ntoa(*(struct in_addr*)&local_dns));
+    printf("Client ver: %s\n", client_ver);
+    printf("####################################\n");
 
     init_frames();
     send_eap_packet(EAPOL_LOGOFF);

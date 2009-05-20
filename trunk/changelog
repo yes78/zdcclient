@@ -1,0 +1,9 @@
+0.2 更新
+-整理代码
+-进一步完善包解析、发送过程细节，加入遇到为止包时的提示
+-区分EAP_RESPONSE_IDENTITY和EAP_RESPONSE_IDENTITY_KEEP_ALIVE发送的包
+-加入自定义客户端版本号的功能参数--ver，并能校验版本号长度
+-默认版本号改成3.5.04.0324
+-修改--help内About ZDClient的文字
+-在认证是提示协议版本信息
+-增加可检测root权限的启动脚本

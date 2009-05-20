@@ -110,7 +110,7 @@ enum STATE  state;                     /* program state */
 pcap_t      *handle;				   /* packet capture handle */
 
 int         dhcp_on = 0;               /* switch var for dhcp */
-int         background;                /* switch var if fork to backg.*/     
+int         background = 0;            /* switch var if fork to backg.*/     
 char        *dev = NULL;               /* capture device name */
 char        *username = NULL;          
 char        *password = NULL;
@@ -187,8 +187,8 @@ show_usage()
             "\t-b, --background         Program fork background after initializtion.\n\n"
             "\t-h, --help               Show this help.\n\n"
             "\t--ver                    Specify a client version. \n"
-            "\t                         Default is `3.5.04.0324', older known versions\n"
-            "\t                          are `3.4.2006.1027', `3.4.2006.1229'\n"
+            "\t                         Default is `3.5.04.1013fk', older known versions\n"
+            "\t                          are `3.4.2006.1027', `3.4.2006.1229', `3.5.04.0324'\n"
             "\t                         NO longer than 13 Bytes allowed.\n\n"
             "\n"
             "  About ZDClient:\n\n"
@@ -257,14 +257,26 @@ action_by_eap_type(enum EAPType pType,
             state = ONLINE;
             printf("##Protocol: EAP_SUCCESS\n");
             fprintf(stderr, "&&Info: Authorized Access to Network. \n");
+            if (background){
+                background = 0;         /* 防止以后误触发 */
+                pid_t pID = fork();     /* fork至后台，主程序退出 */
+                if (pID != 0) {
+                    fprintf(stderr, "&&Info: ZDClient Forked background with PID: [%d]\n\n", pID);
+                    exit(0);
+                }
+            }
             break;
         case EAP_FAILURE:
             state = READY;
             printf("##Protocol: EAP_FAILURE\n");
             if(state == ONLINE){
                 fprintf(stderr, "&&Info: SERVER Forced Logoff\n");
-            } else {
-                fprintf(stderr, "&&Info: Invalid Username or Password. \n");
+            }
+            if (state == STARTED){
+                fprintf(stderr, "&&Info: Invalid Username or Client info mismatch.\n");
+            }
+            if (state == ID_AUTHED){
+                fprintf(stderr, "&&Info: Invalid Password.\n");
             }
             pcap_breakloop (handle);
             break;
@@ -470,7 +482,7 @@ void init_info()
         exit(1);
     }
     if(client_ver == NULL)
-        client_ver = "3.5.04.0324";
+        client_ver = "3.5.04.1013fk";
     else{
         if (strlen (client_ver) > 13) {
             fprintf (stderr, "Error: Specified client version string `%s' longer than 13 Bytes.\n"
@@ -487,13 +499,6 @@ void init_info()
     }
     username_length = strlen(username);
     password_length = strlen(password);
-    if (background){
-        pid_t pID = fork();
-        if (pID != 0) {
-            fprintf(stderr, "&&Info: ZDClient Forked background with PID: [%d]\n\n", pID);
-            exit(0);
-        }
-    }
 }
 
 void init_device()
@@ -591,6 +596,7 @@ static void
 signal_interrupted (int signo)
 {
     printf("\nUSER Interrupted. \n");
+    send_eap_packet(EAPOL_LOGOFF);
     pcap_breakloop (handle);
 }
 
@@ -661,14 +667,12 @@ int main(int argc, char **argv)
     printf("Client ver: %s\n", client_ver);
     printf("####################################\n");
 
-    init_frames();
-    send_eap_packet(EAPOL_LOGOFF);
-    send_eap_packet(EAPOL_START);
+    init_frames ();
+    send_eap_packet (EAPOL_LOGOFF);
+    send_eap_packet (EAPOL_START);
 
-	pcap_loop(handle, -1, get_packet, NULL);
-
-    send_eap_packet(EAPOL_LOGOFF);
-	pcap_close(handle);
+	pcap_loop (handle, -1, get_packet, NULL);
+	pcap_close (handle);
     free (eap_response_ident);
     free (eap_response_md5ch);
     return 0;

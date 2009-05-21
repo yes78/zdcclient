@@ -17,7 +17,7 @@ cd ZDClient_i386_bin
 
 现在假设大家用的是默认版本的ubuntu，系统里面有gedit编辑器：
 {{{
-gedit ~~xxx~~.sh
+gedit xxx.sh
 }}}
 很明显大家看到一行
 {{{
@@ -28,7 +28,7 @@ gedit ~~xxx~~.sh
 ==运行认证==
 回到终端下面：
 {{{
-sudo ./~~xxx~~.sh
+sudo ./xxx.sh
 }}}
 恩，会出现一系列的提示，不过完了之后看到类似
 {{{
@@ -43,16 +43,18 @@ sudo ./~~xxx~~.sh
 
 ==能不能简单点==
 
-~~靠，自己想办法啊~~ 能！如果你按上面的步骤已经能用ZDClient上网了，那么以后“一键上网”也不是什么难事：
+~~靠，自己想办法啊~~ 
 
-首先，重新用gedit打开刚才的~~xxx~~.sh，把行首的“./”去掉，保存。
+*能！*如果你按上面的步骤已经能用ZDClient上网了，那么以后“一键上网”也不是什么难事：
+
+首先，重新用gedit打开刚才的xxx.sh，把行首的“./”去掉，保存。
 {{{
-sudo cp zdclient ~~xxx~~.sh /usr/local/bin
+sudo cp zdclient xxx.sh /usr/local/bin
 }}}
 
 然后在桌面新建一个启动器，名称自定，命令里面输入
 {{{
-gksu ~~xxx~~.sh
+gksu xxx.sh
 }}}
 
 这样之后每次只需双击这个图标，或者把它拉到面板上面，单击，就出现一个密码窗口，输入密码就可以上网了！

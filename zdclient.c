@@ -40,7 +40,7 @@
 #include <assert.h>
 
 /* ZDClient Version */
-#define ZDC_VER "0.3"
+#define ZDC_VER "0.4"
 
 /* default snap length (maximum bytes per packet to capture) */
 #define SNAP_LEN 1518
@@ -109,7 +109,7 @@ static void get_packet(u_char *args, const struct pcap_pkthdr *header,
 
 char        errbuf[PCAP_ERRBUF_SIZE];  /* error buffer */
 enum STATE  state;                     /* program state */
-pcap_t      *handle;				   /* packet capture handle */
+pcap_t      *handle = NULL;			   /* packet capture handle */
 
 int         dhcp_on = 0;               /* switch var for dhcp */
 int         background = 0;            /* switch var if fork to backg.*/     
@@ -139,8 +139,8 @@ u_char      muticast_mac[] = {0x01, 0x80, 0xc2, 0x00, 0x00, 0x03};
 
 u_char      eapol_start[18];
 u_char      eapol_logoff[18];
-u_char      *eap_response_ident;
-u_char      *eap_response_md5ch;
+u_char      *eap_response_ident = NULL;
+u_char      *eap_response_md5ch = NULL;
 
 u_int       live_count = 0;
 pid_t       current_pid = 0;
@@ -183,30 +183,40 @@ show_usage()
             "\t  -- Supllicant for DigiChina Authentication.\n"
             "\n"
             "  Usage:\n"
-            "\tRun under root privilege, usually by `sudo', with \n"
-            "\targuments shown below.\n\n"
-            "  Necessary Arguments:\n\n"
+            "\tRun under root privilege, usually by `sudo', with your \n"
+            "\taccount info in arguments:\n\n"
             "\t-u, --username           Your username.\n"
             "\t-p, --password           Your password.\n"
-            "\t-g, --gateway            Gateway Server. You may leave empty.\n"
-            "\t-d, --dns                DNS Server. You may leave empty.\n"
             "\n"
             "  Optional Arguments:\n\n"
-            "\t--device                 Specify which device to use.\n"
-            "\t                         Default is usually eth0.\n\n"
-            "\t--dhcp                   Use DHCP mode if your ISP requests.\n"
-            "\t                         You may need to run `dhclient' manualy\n"
-            "\t                           after successful authentication.\n\n"
-            "\t--ip                     With DHCP mode on, program need to send \n"
-            "\t--mask                   packet to the server with an ip and mask, use \n"
-            "\t                         this arguments to specify them, or program will\n"
-            "\t                         use a default pseudo one. \n\n"
-            "\t-b, --background         Program fork background after initializtion.\n\n"
-            "\t-h, --help               Show this help.\n\n"
-            "\t--ver                    Specify a client version. \n"
-            "\t                         Default is `3.5.04.1013fk', older known versions\n"
-            "\t                          are `3.4.2006.1027', `3.4.2006.1229', `3.5.04.0324'\n"
-            "\t                         NO longer than 13 Bytes allowed.\n\n"
+            "\t-g, --gateway         Specify Gateway server address. \n\n"
+
+            "\t-d, --dns             Specify DNS server address. \n\n"
+
+            "\t--device              Specify which device to use.\n"
+            "\t                      Default is usually eth0.\n\n"
+
+            "\t--dhcp                Use DHCP mode if your ISP requests.\n"
+            "\t                      You may need to run `dhclient' manualy to\n"
+            "\t                      renew your IP address after successful \n"
+            "\t                      authentication.\n\n"
+
+            "\t--ip                  With DHCP mode on, program need to send \n"
+            "\t--mask                packet to the server with an IP and MASK, use \n"
+            "\t                      this arguments to specify them, or program will\n"
+            "\t                      use a pseudo one. \n\n"
+
+            "\t-b, --background      Program fork to background after authentication.\n\n"
+
+            "\t--ver                 Specify a client version. \n"
+            "\t                      Default is `3.5.04.1013fk'.\n"
+            "\t                      Other known versions are:\n"
+            "\t                      `3.5.04.1110fk', `3.5.04.0324', \n"
+            "\t                      `3.4.2006.1027', `3.4.2006.1229', \n"
+            "\t                      `3.4.2006.0220'\n"
+            "\t                      NO longer than 13 Bytes allowed.\n\n"
+
+            "\t-h, --help            Show this help.\n\n"
             "\n"
             "  About ZDClient:\n\n"
             "\tThis program is a C implementation to DigiChina Authentication,\n"
@@ -216,7 +226,7 @@ show_usage()
             "\tiontship with Digital China company.\n\n\n"
             
             "\tAnother PT work. Blog: http://apt-blog.co.cc\n"
-            "\t\t\t\t\t\t\t\t2009.05.20\n",
+            "\t\t\t\t\t\t\t\t2009.05.21\n",
             ZDC_VER);
 }
 
@@ -410,7 +420,6 @@ init_frames()
     memcpy(local_info + data_index, username_md5, 16);
     data_index += 16;
     free(username_md5);
-//    memcpy(local_info + data_index, client_ver, 13);
     strncpy ((char*)local_info + data_index, client_ver, 13);
 
 
@@ -501,12 +510,12 @@ void init_info()
     if (dhcp_on){
         if (user_ip == NULL){
             fprintf (stderr,"&&Info:DHCP Modol On with NO IP specified.\n"
-                            " Use default pseudo IP `169.254.216.45'.\n");
+                            "Use default pseudo IP `169.254.216.45'.\n");
             user_ip = "169.254.216.45";
         }
         if (user_mask == NULL) {
             fprintf (stderr,"&&Info:DHCP Modol On with NO MASK specified.\n"
-                            " Use default MASK `255.255.0.0' .\n");
+                            "Use default MASK `255.255.0.0' .\n");
             user_mask = "255.255.0.0";
         }
     }
@@ -532,8 +541,8 @@ void init_info()
         local_dns = 0;
 
     if (local_ip == -1 || local_mask == -1 || local_gateway == -1 || local_dns == -1) {
-        fprintf (stderr,"ERROR: One between IP, MASK, Gateway and DNS address format error.\n"
-                        "Use defaulf 0.0.0.0\n");
+        fprintf (stderr,"ERROR: One of specified IP, MASK, Gateway and DNS address\n"
+                        "in the arguments format error.\n");
         exit(EXIT_FAILURE);
     }
 

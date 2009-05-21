@@ -3,7 +3,7 @@
 
 ==下载解压==
 
-从项目主页下载最新的二进制包，下面以zdclient_0.4_i386_bin.tar.gz为例：
+从[http://code.google.com/p/zdcclient/ 项目主页]下载最新的二进制包，下面以zdclient_0.4_i386_bin.tar.gz为例：
 {{{
 tar xvfz zdclient_0.4_i386_bin.tar.gz
 cd ZDClient_i386_bin

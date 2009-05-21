@@ -1,0 +1,60 @@
+#labels Featured,Phase-Support,Toturial
+= ZDClient 使用教程 =
+
+==下载解压==
+
+从项目主页下载最新的二进制包，下面以zdclient_0.4_i386_bin.tar.gz为例：
+{{{
+tar xvfz zdclient_0.4_i386_bin.tar.gz
+cd ZDClient_i386_bin
+}}}
+
+==启动脚本==
+
+现在目录里面有两个自动运行的脚本，dhcp_zdc_run.sh和st_zdc_run.sh，分别对应动态IP和静态IP模式使用……别慌，区别很简单：*如果使用Win系统，在认证之前的提示“本地连接收限”的，就使用dhcp_zdc_run.sh*，其他的一律使用st_zdc_run.sh。
+
+好，下面假设大家已经选好了适用的*~~xxx~~.sh*
+
+现在假设大家用的是默认版本的ubuntu，系统里面有gedit编辑器：
+{{{
+gedit ~~xxx~~.sh
+}}}
+很明显大家看到一行
+{{{
+./zdclient -u username -p password -b
+}}}
+当然，就是改上你的用户名和密码了，保存。
+
+==运行认证==
+回到终端下面：
+{{{
+sudo ./~~xxx~~.sh
+}}}
+恩，会出现一系列的提示，不过完了之后看到类似
+{{{
+&&Info: Authorized Access to Network. 
+&&Info: ZDClient Forked background with PID: [12345]
+}}}
+如果是DHCP模式的话还有几行获取新IP的过程……
+
+*~~理论上~~现在你就能上网了！*
+
+以后每次都进来这个目录，重复*运行认证*这个步骤，~~才~~就可以上网了！
+
+==能不能简单点==
+
+~~靠，自己想办法啊~~ 能！如果你按上面的步骤已经能用ZDClient上网了，那么以后“一键上网”也不是什么难事：
+
+首先，重新用gedit打开刚才的~~xxx~~.sh，把行首的“./”去掉，保存。
+{{{
+sudo cp zdclient ~~xxx~~.sh /usr/local/bin
+}}}
+
+然后在桌面新建一个启动器，名称自定，命令里面输入
+{{{
+gksu ~~xxx~~.sh
+}}}
+
+这样之后每次只需双击这个图标，或者把它拉到面板上面，单击，就出现一个密码窗口，输入密码就可以上网了！
+
+~~什么？你密码都不想输？行！加入到光荣的root敢死队联盟就可以了。~~

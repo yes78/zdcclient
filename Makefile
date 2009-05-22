@@ -2,6 +2,9 @@ CC = gcc
 LIBS = -lpcap
 CFLAGS = -Wall -g
 
+.PHONY: all
+all: zdclient
+
 zdclient	: md5.o zdclient.o
 	$(CC) $(CFLAGS) -o $@ md5.o zdclient.o $(LIBS)
 
@@ -12,4 +15,4 @@ zdclient.o : zdclient.c
 	$(CC) $(CFLAGS) -c $<
 	
 clean :
-	rm -v *.o *~ zdclient
+	rm -v *.o

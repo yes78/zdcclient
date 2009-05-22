@@ -273,9 +273,9 @@ get_eap_type(const struct sniff_eap_header *eap_header)
         case 0x04:
             return EAP_FAILURE;
     }
-    fprintf(stderr, "Unknown Package : eap_t:      %02x\n"
-                    "                  eap_ask_id: %02x\n"
-                    "                  eap_op:     %02x\n", 
+    fprintf (stderr, "&&IMPORTANT: Unknown Package : eap_t:      %02x\n"
+                    "                               eap_ask_id: %02x\n"
+                    "                               eap_op:     %02x\n", 
                     eap_header->eap_t, eap_header->eap_ask_id,
                     eap_header->eap_op);
     return ERROR;
@@ -288,13 +288,13 @@ action_by_eap_type(enum EAPType pType,
     switch(pType){
         case EAP_SUCCESS:
             state = ONLINE;
-            printf("##Protocol: EAP_SUCCESS\n");
-            fprintf(stderr, "&&Info: Authorized Access to Network. \n");
+            fprintf(stdout, "##Protocol: EAP_SUCCESS\n");
+            fprintf(stdout, "&&Info: Authorized Access to Network. \n");
             if (background){
                 background = 0;         /* 防止以后误触发 */
                 pid_t pID = fork();     /* fork至后台，主程序退出 */
                 if (pID != 0) {
-                    fprintf(stderr, "&&Info: ZDClient Forked background with PID: [%d]\n\n", pID);
+                    fprintf(stdout, "&&Info: ZDClient Forked background with PID: [%d]\n\n", pID);
                     exit(0);
                 }
             }
@@ -302,33 +302,33 @@ action_by_eap_type(enum EAPType pType,
             break;
         case EAP_FAILURE:
             state = READY;
-            printf("##Protocol: EAP_FAILURE\n");
+            fprintf(stdout, "##Protocol: EAP_FAILURE\n");
             if(state == ONLINE){
-                fprintf(stderr, "&&Info: SERVER Forced Logoff\n");
+                fprintf(stdout, "&&Info: SERVER Forced Logoff\n");
             }
             if (state == STARTED){
-                fprintf(stderr, "&&Info: Invalid Username or Client info mismatch.\n");
+                fprintf(stdout, "&&Info: Invalid Username or Client info mismatch.\n");
             }
             if (state == ID_AUTHED){
-                fprintf(stderr, "&&Info: Invalid Password.\n");
+                fprintf(stdout, "&&Info: Invalid Password.\n");
             }
             pcap_breakloop (handle);
             break;
         case EAP_REQUEST_IDENTITY:
             if (state == STARTED){
-                printf("##Protocol: REQUEST EAP-Identity\n");
+                fprintf(stdout, "##Protocol: REQUEST EAP-Identity\n");
             }
             send_eap_packet(EAP_RESPONSE_IDENTITY);
             break;
         case EAP_REQUETS_MD5_CHALLENGE:
             state = ID_AUTHED;
-            printf("##Protocol: REQUEST MD5-Challenge(PASSWORD)\n");
+            fprintf(stdout, "##Protocol: REQUEST MD5-Challenge(PASSWORD)\n");
             fill_password_md5((u_char*)header->eap_md5_challenge);
             send_eap_packet(EAP_RESPONSE_MD5_CHALLENGE);
             break;
         case EAP_REQUEST_IDENTITY_KEEP_ALIVE:
             if (state == ONLINE){
-                printf("[%d]##Protocol: REQUEST EAP_REQUEST_IDENTITY_KEEP_ALIVE (%d)\n",
+                fprintf(stdout, "[%d]##Protocol: REQUEST EAP_REQUEST_IDENTITY_KEEP_ALIVE (%d)\n",
                                             current_pid,live_count++);
             }
 
@@ -358,13 +358,13 @@ send_eap_packet(enum EAPType send_type)
             state = STARTED;
             frame_data= eapol_start;
             frame_length = 14 + 4;
-            printf("##Protocol: SEND EAPOL-Start\n");
+            fprintf(stdout, "##Protocol: SEND EAPOL-Start\n");
             break;
         case EAPOL_LOGOFF:
             state = READY;
             frame_data = eapol_logoff;
             frame_length = 14 + 4;
-            printf("##Protocol: SEND EAPOL-Logoff\n");
+            fprintf(stdout, "##Protocol: SEND EAPOL-Logoff\n");
             break;
         case EAP_RESPONSE_IDENTITY:
             frame_data = eap_response_ident;
@@ -372,12 +372,12 @@ send_eap_packet(enum EAPType send_type)
             if (*(frame_data + 14 + 5) != 0x01){
                 *(frame_data + 14 + 5) = 0x01;
             }
-            printf("##Protocol: SEND EAP-Response/Identity\n");
+            fprintf(stdout, "##Protocol: SEND EAP-Response/Identity\n");
             break;
         case EAP_RESPONSE_MD5_CHALLENGE:
             frame_data = eap_response_md5ch;
             frame_length = 14 + 10 + 16 + username_length + 46;
-            printf("##Protocol: SEND EAP-Response/Md5-Challenge\n");
+            fprintf(stdout, "##Protocol: SEND EAP-Response/Md5-Challenge\n");
             break;
         case EAP_RESPONSE_IDENTITY_KEEP_ALIVE:
             frame_data = eap_response_ident;
@@ -385,15 +385,15 @@ send_eap_packet(enum EAPType send_type)
             if (*(frame_data + 14 + 5) != 0x03){
                 *(frame_data + 14 + 5) = 0x03;
             }
-            printf("[%d]##Protocol: SEND EAP_RESPONSE_IDENTITY_KEEP_ALIVE\n", current_pid);
+            fprintf(stdout, "[%d]##Protocol: SEND EAP_RESPONSE_IDENTITY_KEEP_ALIVE\n", current_pid);
             break;
         default:
-            fprintf(stderr,"ERROR: Wrong Send Request Type.%02x\n", send_type);
+            fprintf(stderr,"&&IMPORTANT: Wrong Send Request Type.%02x\n", send_type);
             return;
     }
     if (pcap_sendpacket(handle, frame_data, frame_length) != 0)
     {
-        fprintf(stderr,"\nError sending the packet: %s\n", pcap_geterr(handle));
+        fprintf(stderr,"&&IMPORTANT: Error Sending the packet: %s\n", pcap_geterr(handle));
         return;
     }
 }

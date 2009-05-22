@@ -51,9 +51,16 @@ case $ARCH in
 	;;
 esac
 
+SRCFILE=ZDClient-$VERSION-src.tar.gz
+SRC_AR=ZDClient-$VERSION-src
 PACKAGE=ZDClient-$VERSION-$ARCH
 SOURCE_DIR=`pwd`
 OUTPUT_DIR=`pwd`/$PACKAGE
+
+
+mkdir $SRC_AR
+cp $SOURCE_DIR/* $SRC_AR
+tar cvfa $SRCFILE $SRC_AR
 
 echo "Package name: $PACKAGE"
 echo "Source directory: $SOURCE_DIR"
@@ -81,8 +88,10 @@ fi
 # 压缩打包
 TARBALL=$PACKAGE-bin.tar.gz
 cd $OUTPUT_DIR/..	&& \
-cp $SOURCE_DIR/dhcp_zdc_run.sh $SOURCE_DIR/st_zdc_run.sh $OUTPUT_DIR/	&& \
+cp $SOURCE_DIR/dhcp_zdc_run.sh $SOURCE_DIR/st_zdc_run.sh $SOURCE_DIR/Readme.txt $SOURCE_DIR/changelog\
+ $SOURCE_DIR/$SRCFILE $OUTPUT_DIR/
 tar cvfz $TARBALL $PACKAGE
+rm -rf $PACKAGE/ $SRC_AR/
 
 if [ $? -eq 0 ] ; then
 	echo "Created tarball: $TARBALL"

@@ -37,7 +37,7 @@
 #include <unistd.h>
 #include "md5.h"
 
-#include <assert.h>
+//#include <assert.h>
 
 /* ZDClient Version */
 #define ZDC_VER "0.6"
@@ -127,9 +127,6 @@ char        *user_dns = NULL;
 char        *user_ip = NULL;
 char        *user_mask = NULL;
 
-//int         specfied_ip;
-//int         specfied_mask;
-
 u_int       local_ip;			       /* 网卡IP，网络序，下同 */
 u_int       local_mask;			       /* subnet mask */
 u_int       local_gateway = -1;
@@ -150,24 +147,6 @@ u_int       live_count = 0;             /* KEEP ALIVE 报文的计数值 */
 pid_t       current_pid = 0;            /* 记录后台进程的pid */
 
 int         use_pseudo_ip = 0;          /* DHCP模式网卡无IP情况下使用伪IP的标志 */
-
-
-/* Option struct for progrm run arguments */
-static struct option long_options[] =
-    {
-    {"help",        no_argument,        0,              'h'},
-    {"background",  no_argument,        &background,    1},
-    {"dhcp",        no_argument,        &dhcp_on,       1},
-    {"device",      required_argument,  0,              2},
-    {"ver",         required_argument,  0,              3},
-    {"username",    required_argument,  0,              'u'},
-    {"password",    required_argument,  0,              'p'},
-    {"ip",          required_argument,  0,              4},
-    {"mask",        required_argument,  0,              5},
-    {"gateway",     required_argument,  0,              'g'},
-    {"dns",         required_argument,  0,              'd'},
-    {0, 0, 0, 0}
-    };
 
 // debug function
 void 
@@ -721,6 +700,23 @@ signal_interrupted (int signo)
 
 void init_arguments(int argc, char **argv)
 {
+    /* Option struct for progrm run arguments */
+    static struct option long_options[] =
+        {
+        {"help",        no_argument,        0,              'h'},
+        {"background",  no_argument,        &background,    1},
+        {"dhcp",        no_argument,        &dhcp_on,       1},
+        {"device",      required_argument,  0,              2},
+        {"ver",         required_argument,  0,              3},
+        {"username",    required_argument,  0,              'u'},
+        {"password",    required_argument,  0,              'p'},
+        {"ip",          required_argument,  0,              4},
+        {"mask",        required_argument,  0,              5},
+        {"gateway",     required_argument,  0,              'g'},
+        {"dns",         required_argument,  0,              'd'},
+        {0, 0, 0, 0}
+        };
+
     int c;
     while (1) {
 

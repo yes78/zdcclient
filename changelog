@@ -1,3 +1,8 @@
+0.6更新
+-修改eap头的eap_id类型，以及之前的误用：
+	eap_id只作为是REQ/IDY还是REQ/IDY-KEEP ALIVE的判断；
+	eap_id还用在MD5-Challenge的计算中，虽然神州数码中计算MD5-Challenge的时候eap_id总是0x02，不过还是作为参数传入，更符合RFC 1994关于EAP的标准；
+
 0.5更新
 -改善DHCP模式下的认证IP处理方法：
     若程序能够从网卡获得IP，则使用网卡的真实IP

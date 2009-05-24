@@ -40,7 +40,7 @@
 #include <assert.h>
 
 /* ZDClient Version */
-#define ZDC_VER "0.5"
+#define ZDC_VER "0.6"
 
 /* default snap length (maximum bytes per packet to capture) */
 #define SNAP_LEN 1518
@@ -62,7 +62,7 @@ struct sniff_eap_header {
     u_char eapol_t;
     u_short eapol_length;
     u_char eap_t;
-    u_char eap_ask_id;
+    u_char eap_id;
     u_short eap_length;
     u_char eap_op;
     u_char eap_v_length;
@@ -90,7 +90,6 @@ enum STATE {
    ONLINE
 };
 
-void    fill_password_md5(u_char attach_key[]);
 void    send_eap_packet(enum EAPType send_type);
 void    show_usage();
 char*   get_md5_digest(const char* str, size_t len);
@@ -102,7 +101,7 @@ void    init_info();
 void    init_device();
 void    init_arguments(int argc, char **argv);
 int     set_device_new_ip();
-void    fill_password_md5(u_char attach_key[]);
+void    fill_password_md5(u_char attach_key[], u_int id);
 
 
 static void signal_interrupted (int signo);
@@ -256,27 +255,26 @@ get_eap_type(const struct sniff_eap_header *eap_header)
 {
     switch (eap_header->eap_t){
         case 0x01:
-            if (eap_header->eap_ask_id == 0x01 &&
-                            eap_header->eap_op == 0x01)
-                    return EAP_REQUEST_IDENTITY;
-            if (eap_header->eap_ask_id == 0x02 &&
-                            eap_header->eap_op == 0x04)
-                    return EAP_REQUETS_MD5_CHALLENGE;
-            if (eap_header->eap_ask_id == 0x03 &&
-                            eap_header->eap_op == 0x01)
+            if ( eap_header->eap_op == 0x01 &&
+                        eap_header->eap_id == 0x03 )
                 return EAP_REQUEST_IDENTITY_KEEP_ALIVE;
+            if ( eap_header->eap_op == 0x01)
+                return EAP_REQUEST_IDENTITY;
+            if ( eap_header->eap_op == 0x04)
+                return EAP_REQUETS_MD5_CHALLENGE;
+
             break;
         case 0x03:
-        //    if (eap_header->eap_ask_id == 0x02)
+        //    if (eap_header->eap_id == 0x02)
             return EAP_SUCCESS;
             break;
         case 0x04:
             return EAP_FAILURE;
     }
     fprintf (stderr, "&&IMPORTANT: Unknown Package : eap_t:      %02x\n"
-                    "                               eap_ask_id: %02x\n"
+                    "                               eap_id: %02x\n"
                     "                               eap_op:     %02x\n", 
-                    eap_header->eap_t, eap_header->eap_ask_id,
+                    eap_header->eap_t, eap_header->eap_id,
                     eap_header->eap_op);
     return ERROR;
 }
@@ -323,7 +321,7 @@ action_by_eap_type(enum EAPType pType,
         case EAP_REQUETS_MD5_CHALLENGE:
             state = ID_AUTHED;
             fprintf(stdout, "##Protocol: REQUEST MD5-Challenge(PASSWORD)\n");
-            fill_password_md5((u_char*)header->eap_md5_challenge);
+            fill_password_md5((u_char*)header->eap_md5_challenge, header->eap_id);
             send_eap_packet(EAP_RESPONSE_MD5_CHALLENGE);
             break;
         case EAP_REQUEST_IDENTITY_KEEP_ALIVE:
@@ -498,11 +496,11 @@ init_frames()
 }
 
 void 
-fill_password_md5(u_char attach_key[])
+fill_password_md5(u_char attach_key[], u_int eap_id)
 {
     char *psw_key = malloc(1 + password_length + 16);
     char *md5_challenge_key;
-    psw_key[0] = 0x02;
+    psw_key[0] = eap_id;
     memcpy (psw_key + 1, password, password_length);
     memcpy (psw_key + 1 + password_length, attach_key, 16);
 

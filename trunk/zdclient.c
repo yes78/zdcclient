@@ -40,7 +40,7 @@
 //#include <assert.h>
 
 /* ZDClient Version */
-#define ZDC_VER "0.6"
+#define ZDC_VER "0.7"
 
 /* default snap length (maximum bytes per packet to capture) */
 #define SNAP_LEN 1518
@@ -102,6 +102,7 @@ void    init_device();
 void    init_arguments(int argc, char **argv);
 int     set_device_new_ip();
 void    fill_password_md5(u_char attach_key[], u_int id);
+void program_unique_check(const char* program_name);
 
 
 static void signal_interrupted (int signo);
@@ -147,6 +148,7 @@ u_int       live_count = 0;             /* KEEP ALIVE 报文的计数值 */
 pid_t       current_pid = 0;            /* 记录后台进程的pid */
 
 int         use_pseudo_ip = 0;          /* DHCP模式网卡无IP情况下使用伪IP的标志 */
+int         exit_flag = 0;
 
 // debug function
 void 
@@ -199,6 +201,8 @@ show_usage()
             "\t                      `3.4.2006.1027', `3.4.2006.1229', \n"
             "\t                      `3.4.2006.0220'\n"
             "\t                      NO longer than 13 Bytes allowed.\n\n"
+
+            "\t-l                    Tell the process to Logoff.\n\n"
 
             "\t-h, --help            Show this help.\n\n"
             "\n"
@@ -722,7 +726,7 @@ void init_arguments(int argc, char **argv)
 
         /* getopt_long stores the option index here. */
         int option_index = 0;
-        c = getopt_long (argc, argv, "u:p:g:d:hb",
+        c = getopt_long (argc, argv, "u:p:g:d:hbl",
                         long_options, &option_index);
         if (c == -1)
             break;
@@ -753,6 +757,9 @@ void init_arguments(int argc, char **argv)
             case 'd':
                 user_dns = optarg;
                 break;
+            case 'l':
+                exit_flag = 1;
+                break;
             case 'h':
                 show_usage();
                 exit(EXIT_SUCCESS);
@@ -769,9 +776,55 @@ void init_arguments(int argc, char **argv)
     }    
 }
 
+void program_unique_check(const char* program)
+{
+    FILE    *fd;
+    pid_t   id = 0;
+    char    command[50] = {0};
+    char    pid_num[20] = {0};
+    const char* program_name;
+
+    program_name = strrchr (program, '/');
+    if (program_name)
+        ++program_name;
+    else
+        program_name = program;
+
+    strcat (command, "ps -Ao pid,comm|grep ");
+    strcat (command, program_name);
+
+	if ( (fd = popen(command, "r")) == NULL ) {
+		perror("popen");
+		exit(EXIT_FAILURE);
+	}
+
+    fgets(pid_num, 20, fd);
+
+    id = atoi(pid_num);
+
+    if (exit_flag){
+        if ( getpid() == id ){
+            fprintf (stderr, "@@Error: No `%s' Running.\n", program_name);
+            exit(EXIT_FAILURE);
+        }
+        if ( kill (id, SIGINT) == -1 ) {
+			perror("kill");
+			exit(EXIT_FAILURE);
+        }
+        fprintf (stdout, "&&Info: Exit Signal Sent.\n");
+        exit(EXIT_SUCCESS);
+    }
+    if ( getpid() != id ){
+        fprintf (stderr, "@@Error: There's another `%s' running with PID %d\n",
+                program_name, id);
+        exit(EXIT_FAILURE);
+    }
+}
+
 int main(int argc, char **argv)
 {
     init_arguments (argc, argv);
+    program_unique_check (argv[0]);
     init_info();
     init_device();
     init_frames ();

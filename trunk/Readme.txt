@@ -1,8 +1,8 @@
-ZDC_Client v0.4 Readme
+ZDClient v0.7 Readme
 
 编译：
 	编译需要libpcap库，一般Linux发行版里面安装libpcap-dev包即可，如ubuntu： sudo apt-get install libpcap-dev
-	然后从命令行进入源代码目录，运行make，应该很快就能生成ZDC_Client，当然前提是系统中安装了gcc等编译环境，这里不再累赘。
+	然后从命令行进入源代码目录，运行make，应该很快就能生成zdclient，当然前提是系统中安装了gcc等编译环境，这里不再累赘。
 	理论上兼容包括Mac、Solaris等Unix系系统。
 	
 运行：
@@ -10,15 +10,14 @@ ZDC_Client v0.4 Readme
 	
 	sudo ./zdclient -u username -p password --background
 	
-	u、p、分别是用户名、密码，--background参数可让程序进入后台运行，具体可./zdclient --help查看
-	
+	u、p分别是用户名、密码，--background参数可让程序进入后台运行，具体可./zdclient --help查看
+
 	压缩包内提供了两个启动脚本st_zdc_run.sh和dhcp_zdc_run.sh，分别包含了用于静态IP和动态IP环境的推荐参数，区别请看DHCP模式一节；
 	用gedit等编辑软件修改sh文件内的username、password，以后运行sudo ./xx_zdc_run.sh即可。
 	
 终止：
 	默认方式启动的程序，按Ctrl + C即可正常下线，程序终止；
-	在以后台方式启动后，程序每隔约20秒就输出一次协议提示，其中方括号［xxx］的数值为进程pid，可用sudo kill xxx可终止进程。
-	如果已经了运行时的关闭窗口，就只能使用ps -A|grep zdclient来找到pid了。
+	如果是以后台方式启动的，可另外使用-l参数运行ZDClient，当然也需要root权限，便能通知原程序下线并退出了。
 
 DHCP模式：
 	这里提到的DHCP模式不是完全指网卡是否用DHCP获取IP，DHCP模式的特点是：
@@ -35,7 +34,8 @@ DHCP模式：
 
 A PT Work. 
 
-Blog: http://apt-blog.co.cc
-GMail: pentie@gmail.com
+项目主页： http://code.google.com/p/zdcclient/
+Blog:    http://apt-blog.co.cc
+GMail:   pentie@gmail.com
 
 2009-05-20 于广州大学城

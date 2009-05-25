@@ -819,6 +819,7 @@ void program_unique_check(const char* program)
                 program_name, id);
         exit(EXIT_FAILURE);
     }
+    pclose(fd);
 }
 
 int main(int argc, char **argv)

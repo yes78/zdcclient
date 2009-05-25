@@ -793,10 +793,10 @@ void program_unique_check(const char* program)
     strcat (command, "ps -Ao pid,comm|grep ");
     strcat (command, program_name);
 
-	if ( (fd = popen(command, "r")) == NULL ) {
-		perror("popen");
-		exit(EXIT_FAILURE);
-	}
+    if ( (fd = popen(command, "r")) == NULL ) {
+        perror("popen");
+        exit(EXIT_FAILURE);
+    }
 
     fgets(pid_num, 20, fd);
 

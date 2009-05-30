@@ -27,6 +27,7 @@
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <sys/ioctl.h>
+#include <sys/stat.h>
 
 #include <netinet/in.h>
 #include <arpa/inet.h>
@@ -35,12 +36,14 @@
 #include <signal.h>
 #include <getopt.h>
 #include <unistd.h>
+
+#include <fcntl.h>
 #include "md5.h"
 
 //#include <assert.h>
 
 /* ZDClient Version */
-#define ZDC_VER "0.7"
+#define ZDC_VER "0.8"
 
 /* default snap length (maximum bytes per packet to capture) */
 #define SNAP_LEN 1518
@@ -50,6 +53,12 @@
 
 /* Ethernet addresses are 6 bytes */
 #define ETHER_ADDR_LEN	6
+
+#define LOCKFILE "/var/run/zdclient.pid"
+
+#define LOCKMODE (S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH)
+
+
 /* Ethernet header */
 struct sniff_ethernet {
     u_char  ether_dhost[ETHER_ADDR_LEN];    /* destination host address */
@@ -776,56 +785,51 @@ void init_arguments(int argc, char **argv)
     }    
 }
 
-void program_unique_check(const char* program)
+
+int program_running_check()
 {
-    FILE    *fd;
-    pid_t   id = 0;
-    char    command[50] = {0};
-    char    pid_num[20] = {0};
-    const char* program_name;
+    int fd;
+    char buf[16];
+    struct flock fl;
+    fl.l_type = F_WRLCK;
+    fl.l_start = 0;
+    fl.l_whence = SEEK_SET;
+    fl.l_len = 0;
 
-    program_name = strrchr (program, '/');
-    if (program_name)
-        ++program_name;
-    else
-        program_name = program;
+    fd = open (LOCKFILE, O_RDWR | O_CREAT , LOCKMODE);
 
-    strcat (command, "ps -Ao pid,comm|grep ");
-    strcat (command, program_name);
-
-    if ( (fd = popen(command, "r")) == NULL ) {
-        perror("popen");
-        exit(EXIT_FAILURE);
+    if (fd < 0){
+        perror ("Lockfile");
+        exit(1);
     }
 
-    fgets(pid_num, 20, fd);
-
-    id = atoi(pid_num);
-
-    if (exit_flag){
-        if ( getpid() == id ){
-            fprintf (stderr, "@@Error: No `%s' Running.\n", program_name);
-            exit(EXIT_FAILURE);
+    if (fcntl(fd, F_SETLK, &fl) < 0){
+        if(errno == EACCES || errno == EAGAIN){
+            read (fd, buf, 16);
+            close(fd);
+            return atoi (buf);
         }
-        if ( kill (id, SIGINT) == -1 ) {
-			perror("kill");
-			exit(EXIT_FAILURE);
-        }
-        fprintf (stdout, "&&Info: Exit Signal Sent.\n");
-        exit(EXIT_SUCCESS);
+        perror("Lockfile");
+        exit(1);
     }
-    if ( getpid() != id ){
-        fprintf (stderr, "@@Error: There's another `%s' running with PID %d\n",
-                program_name, id);
-        exit(EXIT_FAILURE);
-    }
-    pclose(fd);
+
+    ftruncate(fd, 0);    
+    sprintf(buf, "%ld", (long)getpid());
+    write(fd, buf, strlen(buf) + 1);
+    return 0;
 }
+
 
 int main(int argc, char **argv)
 {
+    int ins_pid;
     init_arguments (argc, argv);
-    program_unique_check (argv[0]);
+    if ( (ins_pid = program_running_check ()) ) {
+        fprintf(stderr,"@@ERROR: ZDClient Already "
+                            "Running with PID %d\n", ins_pid);
+        exit(EXIT_FAILURE);
+    }
+
     init_info();
     init_device();
     init_frames ();

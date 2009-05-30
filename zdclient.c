@@ -705,6 +705,8 @@ signal_interrupted (int signo)
     fprintf(stdout,"\n&&Info: USER Interrupted. \n");
     send_eap_packet(EAPOL_LOGOFF);
     pcap_breakloop (handle);
+    pcap_close (handle);
+    exit (EXIT_FAILURE);
 }
 
 void init_arguments(int argc, char **argv)

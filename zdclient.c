@@ -836,7 +836,8 @@ program_running_check()
                                 perror("kill");
                                 exit(EXIT_FAILURE);
                 }
-                exit (EXIT_SUCCESS);
+                fprintf (stdout, "&&Info: Kill Signal Sent.\n");
+                exit (EXIT_FAILURE);
             }
             return inst_pid;
         }

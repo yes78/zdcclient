@@ -111,7 +111,8 @@ void    init_device();
 void    init_arguments(int argc, char **argv);
 int     set_device_new_ip();
 void    fill_password_md5(u_char attach_key[], u_int id);
-void program_unique_check(const char* program_name);
+int     program_running_check();
+void    daemon_init(void);
 
 
 static void signal_interrupted (int signo);
@@ -154,7 +155,7 @@ u_char      *eap_response_ident = NULL; /* EAP RESPON/IDENTITY报文 */
 u_char      *eap_response_md5ch = NULL; /* EAP RESPON/MD5 报文 */
 
 u_int       live_count = 0;             /* KEEP ALIVE 报文的计数值 */
-pid_t       current_pid = 0;            /* 记录后台进程的pid */
+//pid_t       current_pid = 0;            /* 记录后台进程的pid */
 
 int         use_pseudo_ip = 0;          /* DHCP模式网卡无IP情况下使用伪IP的标志 */
 int         exit_flag = 0;
@@ -282,13 +283,8 @@ action_by_eap_type(enum EAPType pType,
             fprintf(stdout, "&&Info: Authorized Access to Network. \n");
             if (background){
                 background = 0;         /* 防止以后误触发 */
-                pid_t pID = fork();     /* fork至后台，主程序退出 */
-                if (pID != 0) {
-                    fprintf(stdout, "&&Info: ZDClient Forked background with PID: [%d]\n\n", pID);
-                    exit(0);
-                }
+                daemon_init();
             }
-            current_pid = getpid();     /* 取得当前进程PID */
             break;
         case EAP_FAILURE:
             state = READY;
@@ -318,8 +314,8 @@ action_by_eap_type(enum EAPType pType,
             break;
         case EAP_REQUEST_IDENTITY_KEEP_ALIVE:
             if (state == ONLINE){
-                fprintf(stdout, "[%d]##Protocol: REQUEST EAP_REQUEST_IDENTITY_KEEP_ALIVE (%d)\n",
-                                            current_pid,live_count++);
+                fprintf(stdout, "##Protocol: REQUEST EAP_REQUEST_IDENTITY_KEEP_ALIVE (%d)\n",
+                                            live_count++);
             }
 
             // 使用伪IP模式认证成功后，获取真实IP，并写入RES/IDTY数据块
@@ -375,7 +371,7 @@ send_eap_packet(enum EAPType send_type)
             if (*(frame_data + 14 + 5) != 0x03){
                 *(frame_data + 14 + 5) = 0x03;
             }
-            fprintf(stdout, "[%d]##Protocol: SEND EAP_RESPONSE_IDENTITY_KEEP_ALIVE\n", current_pid);
+            fprintf(stdout, "##Protocol: SEND EAP_RESPONSE_IDENTITY_KEEP_ALIVE\n");
             break;
         default:
             fprintf(stderr,"&&IMPORTANT: Wrong Send Request Type.%02x\n", send_type);
@@ -785,8 +781,34 @@ void init_arguments(int argc, char **argv)
     }    
 }
 
+void
+daemon_init(void)
+{
+	pid_t	pid;
+    int ins_pid;
 
-int program_running_check()
+	if ( (pid = fork()) < 0)
+	    perror ("Fork");
+	else if (pid != 0) {
+        fprintf(stdout, "&&Info: ZDClient Forked background with PID: [%d]\n\n", pid);
+		exit(0);
+    }
+	setsid();		/* become session leader */
+	chdir("/");		/* change working directory */
+	umask(0);		/* clear our file mode creation mask */
+
+    sleep (1);      /* wait for the parent exit completely */
+
+    if ( (ins_pid = program_running_check ()) ) {
+        fprintf(stderr,"@@Fatal ERROR: Another instance "
+                            "running with PID %d\n", ins_pid);
+        exit(EXIT_FAILURE);
+    }
+}
+
+
+int 
+program_running_check()
 {
     int fd;
     char buf[16];
@@ -823,13 +845,13 @@ int program_running_check()
 int main(int argc, char **argv)
 {
     int ins_pid;
-    init_arguments (argc, argv);
     if ( (ins_pid = program_running_check ()) ) {
         fprintf(stderr,"@@ERROR: ZDClient Already "
                             "Running with PID %d\n", ins_pid);
         exit(EXIT_FAILURE);
     }
 
+    init_arguments (argc, argv);
     init_info();
     init_device();
     init_frames ();
@@ -839,8 +861,9 @@ int main(int argc, char **argv)
 
     printf("######## ZDClient ver. %s #########\n", ZDC_VER);
     printf("Device:     %s\n", dev);
-    printf("MAC:        ");
-    print_hex(local_mac, 6);
+    printf("MAC:        %02x:%02x:%02x:%02x:%02x:%02x\n",
+                        local_mac[0],local_mac[1],local_mac[2],
+                        local_mac[3],local_mac[4],local_mac[5]);
     printf("IP:         %s\n", inet_ntoa(*(struct in_addr*)&local_ip));
     printf("MASK:       %s\n", inet_ntoa(*(struct in_addr*)&local_mask));
     printf("Gateway:    %s\n", inet_ntoa(*(struct in_addr*)&local_gateway));

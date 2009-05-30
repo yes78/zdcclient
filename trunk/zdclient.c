@@ -279,7 +279,7 @@ action_by_eap_type(enum EAPType pType,
     switch(pType){
         case EAP_SUCCESS:
             state = ONLINE;
-            fprintf(stdout, "##Protocol: EAP_SUCCESS\n");
+            fprintf(stdout, ">>Protocol: EAP_SUCCESS\n");
             fprintf(stdout, "&&Info: Authorized Access to Network. \n");
             if (background){
                 background = 0;         /* 防止以后误触发 */
@@ -288,7 +288,7 @@ action_by_eap_type(enum EAPType pType,
             break;
         case EAP_FAILURE:
             state = READY;
-            fprintf(stdout, "##Protocol: EAP_FAILURE\n");
+            fprintf(stdout, ">>Protocol: EAP_FAILURE\n");
             if(state == ONLINE){
                 fprintf(stdout, "&&Info: SERVER Forced Logoff\n");
             }
@@ -302,19 +302,19 @@ action_by_eap_type(enum EAPType pType,
             break;
         case EAP_REQUEST_IDENTITY:
             if (state == STARTED){
-                fprintf(stdout, "##Protocol: REQUEST EAP-Identity\n");
+                fprintf(stdout, ">>Protocol: REQUEST EAP-Identity\n");
             }
             send_eap_packet(EAP_RESPONSE_IDENTITY);
             break;
         case EAP_REQUETS_MD5_CHALLENGE:
             state = ID_AUTHED;
-            fprintf(stdout, "##Protocol: REQUEST MD5-Challenge(PASSWORD)\n");
+            fprintf(stdout, ">>Protocol: REQUEST MD5-Challenge(PASSWORD)\n");
             fill_password_md5((u_char*)header->eap_md5_challenge, header->eap_id);
             send_eap_packet(EAP_RESPONSE_MD5_CHALLENGE);
             break;
         case EAP_REQUEST_IDENTITY_KEEP_ALIVE:
             if (state == ONLINE){
-                fprintf(stdout, "##Protocol: REQUEST EAP_REQUEST_IDENTITY_KEEP_ALIVE (%d)\n",
+                fprintf(stdout, ">>Protocol: REQUEST EAP_REQUEST_IDENTITY_KEEP_ALIVE (%d)\n",
                                             live_count++);
             }
 
@@ -344,13 +344,13 @@ send_eap_packet(enum EAPType send_type)
             state = STARTED;
             frame_data= eapol_start;
             frame_length = 14 + 4;
-            fprintf(stdout, "##Protocol: SEND EAPOL-Start\n");
+            fprintf(stdout, ">>Protocol: SEND EAPOL-Start\n");
             break;
         case EAPOL_LOGOFF:
             state = READY;
             frame_data = eapol_logoff;
             frame_length = 14 + 4;
-            fprintf(stdout, "##Protocol: SEND EAPOL-Logoff\n");
+            fprintf(stdout, ">>Protocol: SEND EAPOL-Logoff\n");
             break;
         case EAP_RESPONSE_IDENTITY:
             frame_data = eap_response_ident;
@@ -358,12 +358,12 @@ send_eap_packet(enum EAPType send_type)
             if (*(frame_data + 14 + 5) != 0x01){
                 *(frame_data + 14 + 5) = 0x01;
             }
-            fprintf(stdout, "##Protocol: SEND EAP-Response/Identity\n");
+            fprintf(stdout, ">>Protocol: SEND EAP-Response/Identity\n");
             break;
         case EAP_RESPONSE_MD5_CHALLENGE:
             frame_data = eap_response_md5ch;
             frame_length = 14 + 10 + 16 + username_length + 46;
-            fprintf(stdout, "##Protocol: SEND EAP-Response/Md5-Challenge\n");
+            fprintf(stdout, ">>Protocol: SEND EAP-Response/Md5-Challenge\n");
             break;
         case EAP_RESPONSE_IDENTITY_KEEP_ALIVE:
             frame_data = eap_response_ident;
@@ -371,7 +371,7 @@ send_eap_packet(enum EAPType send_type)
             if (*(frame_data + 14 + 5) != 0x03){
                 *(frame_data + 14 + 5) = 0x03;
             }
-            fprintf(stdout, "##Protocol: SEND EAP_RESPONSE_IDENTITY_KEEP_ALIVE\n");
+            fprintf(stdout, ">>Protocol: SEND EAP_RESPONSE_IDENTITY_KEEP_ALIVE\n");
             break;
         default:
             fprintf(stderr,"&&IMPORTANT: Wrong Send Request Type.%02x\n", send_type);
@@ -829,7 +829,16 @@ program_running_check()
         if(errno == EACCES || errno == EAGAIN){
             read (fd, buf, 16);
             close(fd);
-            return atoi (buf);
+
+            int inst_pid = atoi (buf);
+            if (exit_flag) {
+                if ( kill (inst_pid, SIGINT) == -1 ) {
+                                perror("kill");
+                                exit(EXIT_FAILURE);
+                }
+                exit (EXIT_SUCCESS);
+            }
+            return inst_pid;
         }
         perror("Lockfile");
         exit(1);
@@ -844,6 +853,8 @@ program_running_check()
 
 int main(int argc, char **argv)
 {
+    init_arguments (argc, argv);
+
     int ins_pid;
     if ( (ins_pid = program_running_check ()) ) {
         fprintf(stderr,"@@ERROR: ZDClient Already "
@@ -851,7 +862,6 @@ int main(int argc, char **argv)
         exit(EXIT_FAILURE);
     }
 
-    init_arguments (argc, argv);
     init_info();
     init_device();
     init_frames ();

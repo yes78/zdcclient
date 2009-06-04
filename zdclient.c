@@ -122,7 +122,7 @@ static void signal_interrupted (int signo);
 static void get_packet(u_char *args, const struct pcap_pkthdr *header, 
                         const u_char *packet);
 
-
+int         lockfile;                  /* 锁文件的描述字 */
 char        errbuf[PCAP_ERRBUF_SIZE];  /* error buffer */
 enum STATE  state;                     /* program state */
 pcap_t      *handle = NULL;			   /* packet capture handle */
@@ -706,7 +706,7 @@ signal_interrupted (int signo)
     send_eap_packet(EAPOL_LOGOFF);
     pcap_breakloop (handle);
     pcap_close (handle);
-    exit (EXIT_FAILURE);
+    exit (EXIT_SUCCESS);
 }
 
 void init_arguments(int argc, char **argv)
@@ -784,10 +784,33 @@ void init_arguments(int argc, char **argv)
 }
 
 void
+flock_reg ()
+{
+    char buf[16];
+    struct flock fl;
+    fl.l_start = 0;
+    fl.l_whence = SEEK_SET;
+    fl.l_len = 0;
+    fl.l_type = F_WRLCK;
+    fl.l_pid = getpid();
+ 
+    //阻塞式的加锁
+    if (fcntl (lockfile, F_SETLKW, &fl) < 0){
+        perror ("fcntl_reg");
+        exit(1);
+    }
+ 
+    //把pid写入锁文件
+    ftruncate (lockfile, 0);    
+    sprintf (buf, "%ld", (long)getpid());
+    write (lockfile, buf, strlen(buf) + 1);
+}
+
+
+void
 daemon_init(void)
 {
 	pid_t	pid;
-    int ins_pid;
 
 	if ( (pid = fork()) < 0)
 	    perror ("Fork");
@@ -799,64 +822,53 @@ daemon_init(void)
 	chdir("/");		/* change working directory */
 	umask(0);		/* clear our file mode creation mask */
 
-    sleep (1);      /* wait for the parent exit completely */
-
-    if ( (ins_pid = program_running_check ()) ) {
-        fprintf(stderr,"@@Fatal ERROR: Another instance "
-                            "running with PID %d\n", ins_pid);
-        exit(EXIT_FAILURE);
-    }
+    flock_reg ();
 }
 
 
 int 
 program_running_check()
 {
-    int fd;
-    char buf[16];
     struct flock fl;
-    fl.l_type = F_WRLCK;
     fl.l_start = 0;
     fl.l_whence = SEEK_SET;
     fl.l_len = 0;
-
-    fd = open (LOCKFILE, O_RDWR | O_CREAT , LOCKMODE);
-
-    if (fd < 0){
-        perror ("Lockfile");
+    fl.l_type = F_WRLCK;
+ 
+    //尝试获得文件锁
+    if (fcntl (lockfile, F_GETLK, &fl) < 0){
+        perror ("fcntl_get");
         exit(1);
     }
-
-    if (fcntl(fd, F_SETLK, &fl) < 0){
-        if(errno == EACCES || errno == EAGAIN){
-            read (fd, buf, 16);
-            close(fd);
-
-            int inst_pid = atoi (buf);
-            if (exit_flag) {
-                if ( kill (inst_pid, SIGINT) == -1 ) {
-                                perror("kill");
-                                exit(EXIT_FAILURE);
-                }
-                fprintf (stdout, "&&Info: Kill Signal Sent to PID %d.\n", inst_pid);
-                exit (EXIT_FAILURE);
+    //没有锁，则给文件加锁，否则返回锁着文件的进程pid
+    if (fl.l_type == F_UNLCK) {
+        flock_reg ();
+        return 0;
+    }
+    else {
+        if (exit_flag) {
+            if ( kill (fl.l_pid, SIGINT) == -1 ) {
+                            perror("kill");
+                            exit(EXIT_FAILURE);
             }
-            return inst_pid;
+            fprintf (stdout, "&&Info: Kill Signal Sent to PID %d.\n", fl.l_pid);
+            exit (EXIT_FAILURE);
         }
-        perror("Lockfile");
-        exit(1);
     }
-
-    ftruncate(fd, 0);    
-    sprintf(buf, "%ld", (long)getpid());
-    write(fd, buf, strlen(buf) + 1);
-    return 0;
+    return fl.l_pid;
 }
+
 
 
 int main(int argc, char **argv)
 {
     init_arguments (argc, argv);
+    //打开锁文件
+    lockfile = open (LOCKFILE, O_RDWR | O_CREAT , LOCKMODE);
+    if (lockfile < 0){
+        perror ("Lockfile");
+        exit(1);
+    }
 
     int ins_pid;
     if ( (ins_pid = program_running_check ()) ) {
@@ -884,13 +896,16 @@ int main(int argc, char **argv)
     printf("Client ver: %s\n", client_ver);
     printf("####################################\n");
 
-    send_eap_packet (EAPOL_LOGOFF);
+//    send_eap_packet (EAPOL_LOGOFF);
     send_eap_packet (EAPOL_START);
 
 	pcap_loop (handle, -1, get_packet, NULL);   /* main loop */
+    /*
+     * //May Never be here. exit by func singal_interrupted
 	pcap_close (handle);
     free (eap_response_ident);
     free (eap_response_md5ch);
+    */
     return 0;
 }
 

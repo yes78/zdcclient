@@ -32,6 +32,7 @@
 #include <netinet/in.h>
 #include <arpa/inet.h>
 #include <net/if.h>
+#include <net/ethernet.h>
 
 #include <signal.h>
 #include <getopt.h>
@@ -43,7 +44,7 @@
 //#include <assert.h>
 
 /* ZDClient Version */
-#define ZDC_VER "0.8"
+#define ZDC_VER "0.9"
 
 /* default snap length (maximum bytes per packet to capture) */
 #define SNAP_LEN 1518
@@ -52,21 +53,13 @@
 #define SIZE_ETHERNET 14
 
 /* Ethernet addresses are 6 bytes */
-#define ETHER_ADDR_LEN	6
+//#define ETHER_ADDR_LEN	6
 
 #define LOCKFILE "/var/run/zdclient.pid"
 
 #define LOCKMODE (S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH)
 
-
-/* Ethernet header */
-struct sniff_ethernet {
-    u_char  ether_dhost[ETHER_ADDR_LEN];    /* destination host address */
-    u_char  ether_shost[ETHER_ADDR_LEN];    /* source host address */
-    u_short ether_type;                     /* IP? ARP? RARP? etc */
-};
-
-struct sniff_eap_header {
+struct eap_header {
     u_char eapol_v;
     u_char eapol_t;
     u_short eapol_length;
@@ -76,6 +69,16 @@ struct sniff_eap_header {
     u_char eap_op;
     u_char eap_v_length;
     u_char eap_md5_challenge[16];
+};
+
+struct dcba_tailer {
+    u_char  dhcp_mode;
+    u_int   local_ip;
+    u_int   local_mask;
+    u_int   local_gateway;
+    u_int   local_dns;
+    u_char  username_md5[16];
+    u_char  client_ver[13];
 };
 
 enum EAPType {
@@ -103,7 +106,7 @@ void    send_eap_packet(enum EAPType send_type);
 void    show_usage();
 char*   get_md5_digest(const char* str, size_t len);
 void    action_by_eap_type(enum EAPType pType, 
-                        const struct sniff_eap_header *header);
+                        const struct eap_header *header);
 void    send_eap_packet(enum EAPType send_type);
 void    init_frames();
 void    init_info();
@@ -149,6 +152,7 @@ char        *client_ver = NULL;         /* 报文协议版本号 */
 u_char      muticast_mac[] =            /* 802.1x的认证服务器多播地址 */
                         {0x01, 0x80, 0xc2, 0x00, 0x00, 0x03};
 
+/* Packet Buffers */
 u_char      eapol_start[18];            /* EAPOL START报文 */
 u_char      eapol_logoff[18];           /* EAPOL LogOff报文 */
 u_char      *eap_response_ident = NULL; /* EAP RESPON/IDENTITY报文 */
@@ -244,7 +248,7 @@ get_md5_digest(const char* str, size_t len)
 }
 
 enum EAPType 
-get_eap_type(const struct sniff_eap_header *eap_header) 
+get_eap_type(const struct eap_header *eap_header) 
 {
     switch (eap_header->eap_t){
         case 0x01:
@@ -274,7 +278,7 @@ get_eap_type(const struct sniff_eap_header *eap_header)
 
 void 
 action_by_eap_type(enum EAPType pType, 
-                        const struct sniff_eap_header *header) {
+                        const struct eap_header *header) {
 //    printf("PackType: %d\n", pType);
     switch(pType){
         case EAP_SUCCESS:
@@ -390,11 +394,11 @@ get_packet(u_char *args, const struct pcap_pkthdr *header,
     const u_char *packet)
 {
 	/* declare pointers to packet headers */
-	const struct sniff_ethernet *ethernet;  /* The ethernet header [1] */
-    const struct sniff_eap_header *eap_header;
+	const struct ether_header *ethernet;  /* The ethernet header [1] */
+    const struct eap_header *eap_header;
 
-    ethernet = (struct sniff_ethernet*)(packet);
-    eap_header = (struct sniff_eap_header *)(packet + SIZE_ETHERNET);
+    ethernet = (struct ether_header*)(packet);
+    eap_header = (struct eap_header *)(packet + SIZE_ETHERNET);
 
     enum EAPType p_type = get_eap_type(eap_header);
     action_by_eap_type(p_type, eap_header);
@@ -404,47 +408,41 @@ get_packet(u_char *args, const struct pcap_pkthdr *header,
 void 
 init_frames()
 {
-    u_char *local_info = malloc(46);
     int data_index;
 
-    /* *  local_info segment used by both RES/Idn and RES/MD5 frame * */
-    data_index = 0;
-    local_info[data_index++] = dhcp_on;
-    memcpy(local_info + data_index, &local_ip, 4);
-    data_index += 4;
-    memcpy(local_info + data_index, &local_mask, 4);
-    data_index += 4;
-    memcpy(local_info + data_index, &local_gateway, 4);
-    data_index += 4;
-    memcpy(local_info + data_index, &local_dns, 4);
-    data_index += 4;
-    char* username_md5 = get_md5_digest(username, username_length);
-    memcpy(local_info + data_index, username_md5, 16);
-    data_index += 16;
-    free(username_md5);
-    strncpy ((char*)local_info + data_index, client_ver, 13);
-
-
     /*****  EAPOL Header  *******/
-    u_char eapol_header[SIZE_ETHERNET];
-    data_index = 0;
-    u_short eapol_t = htons (0x888e);
-    memcpy (eapol_header + data_index, muticast_mac, 6); /* dst addr. muticast */
-    data_index += 6;
-    memcpy (eapol_header + data_index, local_mac, 6);    /* src addr. local mac */
-    data_index += 6;
-    memcpy (eapol_header + data_index, &eapol_t, 2);    /*  frame type, 0x888e*/
-
+    u_char eapol_eth_header[SIZE_ETHERNET];
+    struct ether_header *eth = (struct ether_header *)eapol_eth_header;
+    memcpy (eth->ether_dhost, muticast_mac, 6);
+    memcpy (eth->ether_shost, local_mac, 6);
+    eth->ether_type =  htons (0x888e);
+    
     /**** EAPol START ****/
     u_char start_data[4] = {0x01, 0x01, 0x00, 0x00};
-    memcpy (eapol_start, eapol_header, 14);
+    memcpy (eapol_start, eapol_eth_header, 14);
     memcpy (eapol_start + 14, start_data, 4);
 
     /****EAPol LOGOFF ****/
     u_char logoff_data[4] = {0x01, 0x02, 0x00, 0x00};
-    memcpy (eapol_logoff, eapol_header, 14);
+    memcpy (eapol_logoff, eapol_eth_header, 14);
     memcpy (eapol_logoff + 14, logoff_data, 4);
 
+    /****DCBA Private Info Tailer ***/
+    u_char *local_info_tailer = malloc(46);
+    struct dcba_tailer *dcba_info_tailer = 
+                (struct dcba_tailer *)local_info_tailer;
+    
+    dcba_info_tailer->dhcp_mode         = dhcp_on;
+    dcba_info_tailer->local_ip          = local_ip;
+    dcba_info_tailer->local_mask        = local_mask;
+    dcba_info_tailer->local_gateway     = local_gateway;
+    dcba_info_tailer->local_dns         = local_dns;
+
+    char* username_md5 = get_md5_digest(username, username_length);
+    memcpy(dcba_info_tailer->username_md5, username_md5, 16);
+    free(username_md5);
+
+    strncpy ((char*)dcba_info_tailer->client_ver, client_ver, 13);
 
     /* EAP RESPONSE IDENTITY */
     u_char eap_resp_iden_head[9] = {0x01, 0x00, 
@@ -454,16 +452,16 @@ init_frames()
                                     0x01};
     
     eap_response_ident = malloc (14 + 9 + username_length + 46);
-    memset(eap_response_ident, 0, 14 + 9 + username_length + 46);
+    memset (eap_response_ident, 0, 14 + 9 + username_length + 46);
 
     data_index = 0;
-    memcpy (eap_response_ident + data_index, eapol_header, 14);
+    memcpy (eap_response_ident + data_index, eapol_eth_header, 14);
     data_index += 14;
     memcpy (eap_response_ident + data_index, eap_resp_iden_head, 9);
     data_index += 9;
     memcpy (eap_response_ident + data_index, username, username_length);
     data_index += username_length;
-    memcpy (eap_response_ident + data_index, local_info, 46);
+    memcpy (eap_response_ident + data_index, local_info_tailer, 46);
 
     /** EAP RESPONSE MD5 Challenge **/
     u_char eap_resp_md5_head[10] = {0x01, 0x00, 
@@ -474,13 +472,15 @@ init_frames()
     eap_response_md5ch = malloc (14 + 4 + 6 + 16 + username_length + 46);
 
     data_index = 0;
-    memcpy (eap_response_md5ch + data_index, eapol_header, 14);
+    memcpy (eap_response_md5ch + data_index, eapol_eth_header, 14);
     data_index += 14;
     memcpy (eap_response_md5ch + data_index, eap_resp_md5_head, 10);
     data_index += 26;// 剩余16位在收到REQ/MD5报文后由fill_password_md5填充 
     memcpy (eap_response_md5ch + data_index, username, username_length);
     data_index += username_length;
-    memcpy (eap_response_md5ch + data_index, local_info, 46);
+    memcpy (eap_response_md5ch + data_index, local_info_tailer, 46);
+
+    free (local_info_tailer);
 }
 
 void 

@@ -15,117 +15,15 @@
  *
  * =====================================================================================
  */
-
-#include <pcap.h>
-#include <stdio.h>
-#include <stdlib.h>
-
-#include <string.h>
-#include <ctype.h>
-#include <errno.h>
-
-#include <sys/types.h>
-#include <sys/socket.h>
-#include <sys/ioctl.h>
-#include <sys/stat.h>
-
-#include <netinet/in.h>
-#include <arpa/inet.h>
-#include <net/if.h>
-#include <net/ethernet.h>
-
-#include <signal.h>
-#include <getopt.h>
-#include <unistd.h>
-
-#include <fcntl.h>
-#include "md5.h"
+#include "zdclient.h"
 
 //#include <assert.h>
 
-/* ZDClient Version */
-#define ZDC_VER "0.9"
-
-/* default snap length (maximum bytes per packet to capture) */
-#define SNAP_LEN 1518
-
-/* ethernet headers are always exactly 14 bytes [1] */
-#define SIZE_ETHERNET 14
-
-/* Ethernet addresses are 6 bytes */
-//#define ETHER_ADDR_LEN	6
-
-#define LOCKFILE "/var/run/zdclient.pid"
-
-#define LOCKMODE (S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH)
-
-struct eap_header {
-    u_char eapol_v;
-    u_char eapol_t;
-    u_short eapol_length;
-    u_char eap_t;
-    u_char eap_id;
-    u_short eap_length;
-    u_char eap_op;
-    u_char eap_v_length;
-    u_char eap_md5_challenge[16];
-};
-
-struct dcba_tailer {
-    u_char  dhcp_mode;
-    u_int   local_ip;
-    u_int   local_mask;
-    u_int   local_gateway;
-    u_int   local_dns;
-    u_char  username_md5[16];
-    u_char  client_ver[13];
-};
-
-enum EAPType {
-    EAPOL_START,
-    EAPOL_LOGOFF,
-    EAP_REQUEST_IDENTITY,
-    EAP_RESPONSE_IDENTITY,
-    EAP_REQUEST_IDENTITY_KEEP_ALIVE,
-    EAP_RESPONSE_IDENTITY_KEEP_ALIVE,
-    EAP_REQUETS_MD5_CHALLENGE,
-    EAP_RESPONSE_MD5_CHALLENGE,
-    EAP_SUCCESS,
-    EAP_FAILURE,
-    ERROR
-};
-
-enum STATE {
-   READY,
-   STARTED,
-   ID_AUTHED,
-   ONLINE
-};
-
-void    send_eap_packet(enum EAPType send_type);
-void    show_usage();
-char*   get_md5_digest(const char* str, size_t len);
-void    action_by_eap_type(enum EAPType pType, 
-                        const struct eap_header *header);
-void    send_eap_packet(enum EAPType send_type);
-void    init_frames();
-void    init_info();
-void    init_device();
-void    init_arguments(int argc, char **argv);
-int     set_device_new_ip();
-void    fill_password_md5(u_char attach_key[], u_int id);
-int     program_running_check();
-void    daemon_init(void);
 
 
-static void signal_interrupted (int signo);
-static void get_packet(u_char *args, const struct pcap_pkthdr *header, 
-                        const u_char *packet);
-
-int         lockfile;                  /* 锁文件的描述字 */
 char        errbuf[PCAP_ERRBUF_SIZE];  /* error buffer */
 enum STATE  state;                     /* program state */
-pcap_t      *handle = NULL;			   /* packet capture handle */
+pcap_t      *handle;			   /* packet capture handle */
 
 int         dhcp_on = 0;               /* DHCP 模式标记 */
 int         background = 0;            /* 后台运行标记  */     
@@ -699,15 +597,21 @@ int set_device_new_ip()
     return 0;
 }
 
-static void
-signal_interrupted (int signo)
+void show_local_info ()
 {
-    fprintf(stdout,"\n&&Info: USER Interrupted. \n");
-    send_eap_packet(EAPOL_LOGOFF);
-    pcap_breakloop (handle);
-    pcap_close (handle);
-    exit (EXIT_SUCCESS);
+    printf("######## ZDClient ver. %s #########\n", ZDC_VER);
+    printf("Device:     %s\n", dev);
+    printf("MAC:        %02x:%02x:%02x:%02x:%02x:%02x\n",
+                        local_mac[0],local_mac[1],local_mac[2],
+                        local_mac[3],local_mac[4],local_mac[5]);
+    printf("IP:         %s\n", inet_ntoa(*(struct in_addr*)&local_ip));
+    printf("MASK:       %s\n", inet_ntoa(*(struct in_addr*)&local_mask));
+    printf("Gateway:    %s\n", inet_ntoa(*(struct in_addr*)&local_gateway));
+    printf("DNS:        %s\n", inet_ntoa(*(struct in_addr*)&local_dns));
+    printf("Client ver: %s\n", client_ver);
+    printf("####################################\n");
 }
+
 
 void init_arguments(int argc, char **argv)
 {
@@ -783,129 +687,4 @@ void init_arguments(int argc, char **argv)
     }    
 }
 
-void
-flock_reg ()
-{
-    char buf[16];
-    struct flock fl;
-    fl.l_start = 0;
-    fl.l_whence = SEEK_SET;
-    fl.l_len = 0;
-    fl.l_type = F_WRLCK;
-    fl.l_pid = getpid();
- 
-    //阻塞式的加锁
-    if (fcntl (lockfile, F_SETLKW, &fl) < 0){
-        perror ("fcntl_reg");
-        exit(1);
-    }
- 
-    //把pid写入锁文件
-    ftruncate (lockfile, 0);    
-    sprintf (buf, "%ld", (long)getpid());
-    write (lockfile, buf, strlen(buf) + 1);
-}
-
-
-void
-daemon_init(void)
-{
-	pid_t	pid;
-
-	if ( (pid = fork()) < 0)
-	    perror ("Fork");
-	else if (pid != 0) {
-        fprintf(stdout, "&&Info: ZDClient Forked background with PID: [%d]\n\n", pid);
-		exit(0);
-    }
-	setsid();		/* become session leader */
-	chdir("/");		/* change working directory */
-	umask(0);		/* clear our file mode creation mask */
-
-    flock_reg ();
-}
-
-
-int 
-program_running_check()
-{
-    struct flock fl;
-    fl.l_start = 0;
-    fl.l_whence = SEEK_SET;
-    fl.l_len = 0;
-    fl.l_type = F_WRLCK;
- 
-    //尝试获得文件锁
-    if (fcntl (lockfile, F_GETLK, &fl) < 0){
-        perror ("fcntl_get");
-        exit(1);
-    }
-    //没有锁，则给文件加锁，否则返回锁着文件的进程pid
-    if (fl.l_type == F_UNLCK) {
-        flock_reg ();
-        return 0;
-    }
-    else {
-        if (exit_flag) {
-            if ( kill (fl.l_pid, SIGINT) == -1 ) {
-                            perror("kill");
-                            exit(EXIT_FAILURE);
-            }
-            fprintf (stdout, "&&Info: Kill Signal Sent to PID %d.\n", fl.l_pid);
-            exit (EXIT_FAILURE);
-        }
-    }
-    return fl.l_pid;
-}
-
-
-
-int main(int argc, char **argv)
-{
-    init_arguments (argc, argv);
-    //打开锁文件
-    lockfile = open (LOCKFILE, O_RDWR | O_CREAT , LOCKMODE);
-    if (lockfile < 0){
-        perror ("Lockfile");
-        exit(1);
-    }
-
-    int ins_pid;
-    if ( (ins_pid = program_running_check ()) ) {
-        fprintf(stderr,"@@ERROR: ZDClient Already "
-                            "Running with PID %d\n", ins_pid);
-        exit(EXIT_FAILURE);
-    }
-
-    init_info();
-    init_device();
-    init_frames ();
-
-    signal (SIGINT, signal_interrupted);
-    signal (SIGTERM, signal_interrupted);    
-
-    printf("######## ZDClient ver. %s #########\n", ZDC_VER);
-    printf("Device:     %s\n", dev);
-    printf("MAC:        %02x:%02x:%02x:%02x:%02x:%02x\n",
-                        local_mac[0],local_mac[1],local_mac[2],
-                        local_mac[3],local_mac[4],local_mac[5]);
-    printf("IP:         %s\n", inet_ntoa(*(struct in_addr*)&local_ip));
-    printf("MASK:       %s\n", inet_ntoa(*(struct in_addr*)&local_mask));
-    printf("Gateway:    %s\n", inet_ntoa(*(struct in_addr*)&local_gateway));
-    printf("DNS:        %s\n", inet_ntoa(*(struct in_addr*)&local_dns));
-    printf("Client ver: %s\n", client_ver);
-    printf("####################################\n");
-
-//    send_eap_packet (EAPOL_LOGOFF);
-    send_eap_packet (EAPOL_START);
-
-	pcap_loop (handle, -1, get_packet, NULL);   /* main loop */
-    /*
-     * //May Never be here. exit by func singal_interrupted
-	pcap_close (handle);
-    free (eap_response_ident);
-    free (eap_response_md5ch);
-    */
-    return 0;
-}
 

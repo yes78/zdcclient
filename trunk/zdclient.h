@@ -98,7 +98,7 @@ void    send_eap_packet(enum EAPType send_type);
 void    init_frames();
 void    init_info();
 void    init_device();
-void    init_arguments(int argc, char **argv);
+void    init_arguments(int *argc, char ***argv);
 int     set_device_new_ip();
 void    fill_password_md5(u_char attach_key[], u_int id);
 int     program_running_check();

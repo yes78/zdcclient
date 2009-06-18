@@ -113,7 +113,7 @@ program_running_check()
 
 int main(int argc, char **argv)
 {
-    init_arguments (argc, argv);
+    init_arguments (&argc, &argv);
     //打开锁文件
     lockfile = open (LOCKFILE, O_RDWR | O_CREAT , LOCKMODE);
     if (lockfile < 0){

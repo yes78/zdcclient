@@ -613,7 +613,7 @@ void show_local_info ()
 }
 
 
-void init_arguments(int argc, char **argv)
+void init_arguments(int *argc, char ***argv)
 {
     /* Option struct for progrm run arguments */
     static struct option long_options[] =
@@ -631,13 +631,12 @@ void init_arguments(int argc, char **argv)
         {"dns",         required_argument,  0,              'd'},
         {0, 0, 0, 0}
         };
-
     int c;
     while (1) {
 
         /* getopt_long stores the option index here. */
         int option_index = 0;
-        c = getopt_long (argc, argv, "u:p:g:d:hbl",
+        c = getopt_long ((*argc), (*argv), "u:p:g:d:hbl",
                         long_options, &option_index);
         if (c == -1)
             break;

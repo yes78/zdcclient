@@ -6,14 +6,17 @@
 {{{
 sudo apt-get install libpcap-dev
 }}}
-	然后从命令行进入源代码目录，运行make，应该很快就能生成zdclient，当然前提是系统中安装了gcc等编译环境，这里不再累赘。理论上兼容包括Mac、Solaris等Unix系系统。
+	然后从命令行进入源代码目录，运行make，应该很快就能生成zdclient，当然前提是系统中安装了gcc等编译环境，这里不再累赘。
+
+	如果需要静态编译libpcap库（这样无论目标运行系统有没有安装libpcap库、或者任何版本，都能正常认证），可以修改Makefile文件，把第二行LIBS = -lpcap改成LIBS = /usr/lib/libpcap.a
 	
 ==运行：==
 	运行需要root权限，看例子即可：
 {{{
 sudo ./zdclient -u username -p password --background
 }}}
-	u、p、分别是用户名、密码，--background参数可让程序进入后台运行，具体可./zdclient --help查看压缩包内提供了两个启动脚本st_zdc_run.sh和dhcp_zdc_run.sh，分别包含了用于静态IP和动态IP环境的推荐参数，区别请看DHCP模式一节；
+	u、p、分别是用户名、密码，--background参数可让程序进入后台运行，具体可./zdclient --help查看。
+	压缩包内提供了两个启动脚本st_zdc_run.sh和dhcp_zdc_run.sh，分别包含了用于静态IP和动态IP环境的推荐参数，区别请看DHCP模式一节；
 	用gedit等编辑软件修改sh文件内的username、password，以后运行sudo ./xx_zdc_run.sh即可。
 	
 ==终止：==

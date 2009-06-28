@@ -1,5 +1,5 @@
 #labels Phase-Support,Featured
-=ZDC_Client v0.4 Manual=
+=ZDClient v0.9 Manual=
 
 ==编译：==
 	编译需要libpcap库，一般Linux发行版里面安装libpcap-dev包即可，如ubuntu： 
@@ -25,8 +25,8 @@ sudo ./zdclient -u username -p password --background
 	
 ==终止：==
 	默认方式启动的程序，按Ctrl + C即可正常下线，程序终止；
-	在以后台方式启动后，程序每隔约20秒就输出一次协议提示，其中方括号［xxx］的数值为进程pid，可用sudo kill xxx可终止进程。
-	如果已经了运行时的关闭窗口，可使用使用程序提供的-l参数来通知下线：
+
+	如果以后台方式启动，可使用使用程序提供的-l参数来通知下线：
 {{{
 sudo ./zdclient -l
 }}}

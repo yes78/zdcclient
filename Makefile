@@ -5,11 +5,8 @@ CFLAGS = -Wall -g
 .PHONY: all
 all: zdclient
 
-zdclient	: md5.o zdclient.o main.o
-	$(CC) $(CFLAGS) -o $@ md5.o zdclient.o main.o $(LIBS)
-
-main.o	: main.c
-	$(CC) $(CFLAGS) -c $<
+zdclient	: md5.o zdclient.o
+	$(CC) $(CFLAGS) -o $@ md5.o zdclient.o $(LIBS)
 
 md5.o	: md5.c md5.h
 	$(CC) $(CFLAGS) -c $<

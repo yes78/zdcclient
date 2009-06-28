@@ -68,6 +68,8 @@ print_hex(u_char *array, int count)
 {
     int i;
     for(i = 0; i < count; i++){
+        if ( !(i % 16))
+            printf ("\n");
         printf("%02x ", array[i]);
     }
     printf("\n");
@@ -326,21 +328,26 @@ init_frames()
     memcpy (eapol_logoff + 14, logoff_data, 4);
 
     /****DCBA Private Info Tailer ***/
-    u_char *local_info_tailer = malloc(46);
-    struct dcba_tailer *dcba_info_tailer = 
-                (struct dcba_tailer *)local_info_tailer;
-    
-    dcba_info_tailer->dhcp_mode         = dhcp_on;
-    dcba_info_tailer->local_ip          = local_ip;
-    dcba_info_tailer->local_mask        = local_mask;
-    dcba_info_tailer->local_gateway     = local_gateway;
-    dcba_info_tailer->local_dns         = local_dns;
+    u_char local_info_tailer[46] = {0};
 
+    /* *  local_info_tailer segment used by both RES/Idn and RES/MD5 frame * */
+    data_index = 0;
+    local_info_tailer[data_index++] = dhcp_on;
+    memcpy(local_info_tailer + data_index, &local_ip, 4);
+    data_index += 4;
+    memcpy(local_info_tailer + data_index, &local_mask, 4);
+    data_index += 4;
+    memcpy(local_info_tailer + data_index, &local_gateway, 4);
+    data_index += 4;
+    memcpy(local_info_tailer + data_index, &local_dns, 4);
+    data_index += 4;
     char* username_md5 = get_md5_digest(username, username_length);
-    memcpy(dcba_info_tailer->username_md5, username_md5, 16);
+    memcpy(local_info_tailer + data_index, username_md5, 16);
+    data_index += 16;
     free(username_md5);
+    strncpy ((char*)local_info_tailer + data_index, client_ver, 13);
 
-    strncpy ((char*)dcba_info_tailer->client_ver, client_ver, 13);
+//    print_hex (local_info_tailer, 46);
 
     /* EAP RESPONSE IDENTITY */
     u_char eap_resp_iden_head[9] = {0x01, 0x00, 
@@ -361,6 +368,8 @@ init_frames()
     data_index += username_length;
     memcpy (eap_response_ident + data_index, local_info_tailer, 46);
 
+//    print_hex (eap_response_ident, 14 + 9 + username_length + 46);
+
     /** EAP RESPONSE MD5 Challenge **/
     u_char eap_resp_md5_head[10] = {0x01, 0x00, 
                                    0x00, 6 + 16 + username_length + 46, /* eapol-length */
@@ -378,7 +387,7 @@ init_frames()
     data_index += username_length;
     memcpy (eap_response_md5ch + data_index, local_info_tailer, 46);
 
-    free (local_info_tailer);
+//    free (local_info_tailer);
 }
 
 void 

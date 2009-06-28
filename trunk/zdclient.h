@@ -57,7 +57,7 @@ struct eap_header {
     u_char eap_v_length;
     u_char eap_md5_challenge[16];
 };
-
+/*
 struct dcba_tailer {
     u_char  dhcp_mode;
     u_int   local_ip;
@@ -67,7 +67,7 @@ struct dcba_tailer {
     u_char  username_md5[16];
     u_char  client_ver[13];
 };
-
+*/
 enum EAPType {
     EAPOL_START,
     EAPOL_LOGOFF,

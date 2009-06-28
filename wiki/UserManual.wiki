@@ -16,13 +16,20 @@ sudo apt-get install libpcap-dev
 sudo ./zdclient -u username -p password --background
 }}}
 	u、p、分别是用户名、密码，--background参数可让程序进入后台运行，具体可./zdclient --help查看。
+
 	压缩包内提供了两个启动脚本st_zdc_run.sh和dhcp_zdc_run.sh，分别包含了用于静态IP和动态IP环境的推荐参数，区别请看DHCP模式一节；
-	用gedit等编辑软件修改sh文件内的username、password，以后运行sudo ./xx_zdc_run.sh即可。
+
+	用gedit等编辑软件修改sh文件内的username、password，之后运行sudo ./xx_zdc_run.sh即可。
+
+	或者参考[http://code.google.com/p/zdcclient/wiki/StepByStep_Toturial 使用教程]的方法，启动更方便。
 	
 ==终止：==
 	默认方式启动的程序，按Ctrl + C即可正常下线，程序终止；
 	在以后台方式启动后，程序每隔约20秒就输出一次协议提示，其中方括号［xxx］的数值为进程pid，可用sudo kill xxx可终止进程。
-	如果已经了运行时的关闭窗口，就只能使用ps -A|grep zdclient来找到pid了。
+	如果已经了运行时的关闭窗口，就得使用ps -A|grep zdclient来找到pid了，或者这样也行：
+{{{
+sudo kill `cat /var/run/zdclient.pid`
+}}}
 
 ==DHCP模式：==
 	这里提到的DHCP模式不是完全指网卡是否用DHCP获取IP，DHCP模式的特点是：

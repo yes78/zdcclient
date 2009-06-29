@@ -345,6 +345,7 @@ init_frames()
     memcpy(local_info_tailer + data_index, username_md5, 16);
     data_index += 16;
     free(username_md5);
+
     strncpy ((char*)local_info_tailer + data_index, client_ver, 13);
 
 //    print_hex (local_info_tailer, 46);
@@ -387,7 +388,6 @@ init_frames()
     data_index += username_length;
     memcpy (eap_response_md5ch + data_index, local_info_tailer, 46);
 
-//    free (local_info_tailer);
 }
 
 void 
@@ -606,6 +606,55 @@ int set_device_new_ip()
     return 0;
 }
 
+
+/* 
+ * ===  FUNCTION  ======================================================================
+ *         Name:  code_convert
+ *  Description:  字符串编码转换
+ * =====================================================================================
+ */
+int 
+code_convert(char *from_charset, char *to_charset,
+             char *inbuf, size_t inlen, char *outbuf, size_t outlen)
+{
+    iconv_t cd;
+    char **pin = &inbuf;
+    char **pout = &outbuf;
+
+    cd = iconv_open(to_charset,from_charset);
+
+    if (cd==0) 
+      return -1;
+    memset(outbuf,0,outlen);
+
+    if (iconv(cd, pin, &inlen, pout, &outlen)==-1) 
+      return -1;
+    iconv_close(cd);
+    return 0;
+}
+
+
+/* 
+ * ===  FUNCTION  ======================================================================
+ *         Name:  print_server_info
+ *  Description:  提取中文信息并打印输出
+ * =====================================================================================
+ */
+void 
+print_server_info (const u_char *str)
+{
+    if (!(str[0] == 0x2f && str[1] == 0xfc)) 
+        return;
+
+    char info_str [1024] = {0};
+    int length = str[2];
+    if (code_convert ("gb2312", "utf-8", (char*)str + 3, length, info_str, 200) != 0){
+        fprintf (stderr, "@@Error: Server info convert error.\n");
+        return;
+    }
+    fprintf (stdout, ">>Server Info: %s\n", info_str);
+}
+
 void show_local_info ()
 {
     printf("######## ZDClient ver. %s #########\n", ZDC_VER);
@@ -657,6 +706,9 @@ void init_arguments(int *argc, char ***argv)
                 break;
             case 2:
                 dev = optarg;
+                break;
+            case 3:
+                client_ver = optarg;
                 break;
             case 4:
                 user_ip = optarg;

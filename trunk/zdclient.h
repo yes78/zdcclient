@@ -35,6 +35,7 @@
 #include <net/ethernet.h>
 
 #include <getopt.h>
+#include <iconv.h>
 #include "md5.h"
 
 /* ZDClient Version */
@@ -104,6 +105,9 @@ void    fill_password_md5(u_char attach_key[], u_int id);
 int     program_running_check();
 void    daemon_init(void);
 void    show_local_info();
+void    print_server_info (const u_char *str);
+int     code_convert(char *from_charset, char *to_charset,
+             char *inbuf, size_t inlen, char *outbuf, size_t outlen);
 
 
 void

@@ -132,7 +132,13 @@ show_usage()
             ZDC_VER);
 }
 
-/* calcuate for md5 digest */
+
+/* 
+ * ===  FUNCTION  ======================================================================
+ *         Name:  get_md5_digest
+ *  Description:  calcuate for md5 digest
+ * =====================================================================================
+ */
 char* 
 get_md5_digest(const char* str, size_t len)
 {
@@ -147,6 +153,13 @@ get_md5_digest(const char* str, size_t len)
     return result;
 }
 
+
+/* 
+ * ===  FUNCTION  ======================================================================
+ *         Name:  get_eap_type
+ *  Description:  根据报文的动作位返回enum EAPType内定义的报文类型
+ * =====================================================================================
+ */
 enum EAPType 
 get_eap_type(const struct eap_header *eap_header) 
 {
@@ -176,6 +189,13 @@ get_eap_type(const struct eap_header *eap_header)
     return ERROR;
 }
 
+
+/* 
+ * ===  FUNCTION  ======================================================================
+ *         Name:  action_by_eap_type
+ *  Description:  根据eap报文的类型完成相关的应答
+ * =====================================================================================
+ */
 void 
 action_by_eap_type(enum EAPType pType, 
                         const struct eap_header *header,
@@ -242,6 +262,13 @@ action_by_eap_type(enum EAPType pType,
     }
 }
 
+
+/* 
+ * ===  FUNCTION  ======================================================================
+ *         Name:  send_eap_packet
+ *  Description:  根据eap类型发送相应数据包
+ * =====================================================================================
+ */
 void 
 send_eap_packet(enum EAPType send_type)
 {
@@ -292,7 +319,13 @@ send_eap_packet(enum EAPType send_type)
     }
 }
 
-/* Callback function for pcap.  */
+
+/* 
+ * ===  FUNCTION  ======================================================================
+ *         Name:  get_packet
+ *  Description:  pcap的回呼函数，当收到EAPOL报文时自动被调用
+ * =====================================================================================
+ */
 void
 get_packet(u_char *args, const struct pcap_pkthdr *header, 
     const u_char *packet)
@@ -309,6 +342,13 @@ get_packet(u_char *args, const struct pcap_pkthdr *header,
     return;
 }
 
+
+/* 
+ * ===  FUNCTION  ======================================================================
+ *         Name:  init_frames
+ *  Description:  初始化发送帧的数据
+ * =====================================================================================
+ */
 void 
 init_frames()
 {
@@ -393,6 +433,14 @@ init_frames()
 //    print_hex (eap_response_md5ch, 14 + 4 + 6 + 16 + username_length + 46);
 }
 
+/* 
+ * ===  FUNCTION  ======================================================================
+ *         Name:  fill_password_md5
+ *  Description:  给RESPONSE_MD5_Challenge报文填充相应的MD5值。
+ *  只会在接受到REQUEST_MD5_Challenge报文之后才进行，因为需要
+ *  其中的Key
+ * =====================================================================================
+ */
 void 
 fill_password_md5(u_char attach_key[], u_int eap_id)
 {
@@ -409,6 +457,23 @@ fill_password_md5(u_char attach_key[], u_int eap_id)
     free (md5_challenge_key);
 }
 
+
+/* 
+ * ===  FUNCTION  ======================================================================
+ *         Name:  init_info
+ *  Description:  初始化本地信息。
+ *  涉及的全局变量：
+ *  username            用户名
+ *  password            用户密码
+ *  username_length     用户名长度
+ *  password_length     用户密码长度
+ *  local_ip            本机IP
+ *  local_mask          本机掩码
+ *  local_gateway       网关地址
+ *  local_dns           DNS地址
+ *  client_ver          客户端版本
+ * =====================================================================================
+ */
 void init_info()
 {
     if(username == NULL || password == NULL){
@@ -456,6 +521,14 @@ void init_info()
     }
 }
 
+
+/* 
+ * ===  FUNCTION  ======================================================================
+ *         Name:  init_device
+ *  Description:  初始化设备。主要是找到打开网卡、获取网卡MAC、IP，
+ *  同时设置pcap的初始化工作句柄。
+ * =====================================================================================
+ */
 void init_device()
 {
     struct bpf_program fp;			/* compiled filter program (expression) */
@@ -567,6 +640,13 @@ void init_device()
     pcap_freecode(&fp);
 }
 
+/* 
+ * ===  FUNCTION  ======================================================================
+ *         Name:  set_device_new_ip
+ *  Description:  用于DHCP模式下，当成功验证后并收到服务器发来的保鲜报文，
+ *  调用本函数重新获取本机IP并写入应答报文中。
+ * =====================================================================================
+ */
 int set_device_new_ip()
 {
     struct ifreq ifr;
@@ -667,6 +747,13 @@ print_server_info (const u_char *packet, u_int packetlength)
     fprintf (stdout, ">>Server Info: %s\n", info_str);
 }
 
+
+/* 
+ * ===  FUNCTION  ======================================================================
+ *         Name:  show_local_info
+ *  Description:  显示信息
+ * =====================================================================================
+ */
 void show_local_info ()
 {
     printf("######## ZDClient ver. %s #########\n", ZDC_VER);
@@ -683,6 +770,12 @@ void show_local_info ()
 }
 
 
+/* 
+ * ===  FUNCTION  ======================================================================
+ *         Name:  init_arguments
+ *  Description:  初始化和解释命令行的字符串。getopt_long
+ * =====================================================================================
+ */
 void init_arguments(int *argc, char ***argv)
 {
     /* Option struct for progrm run arguments */

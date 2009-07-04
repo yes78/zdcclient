@@ -60,12 +60,12 @@ struct eap_header {
 };
 
 struct dcba_tailer {
-    u_int   local_ip;
-    u_int   local_mask;
-    u_int   local_gateway;
-    u_int   local_dns;
-    u_char  username_md5[16];
-    u_char  client_ver[13];
+    bpf_u_int32     local_ip;
+    bpf_u_int32     local_mask;
+    bpf_u_int32     local_gateway;
+    bpf_u_int32     local_dns;
+    u_char          username_md5[16];
+    u_char          client_ver[13];
 };
 
 enum EAPType {

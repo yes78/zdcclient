@@ -178,13 +178,16 @@ get_eap_type(const struct eap_header *eap_header)
 
 void 
 action_by_eap_type(enum EAPType pType, 
-                        const struct eap_header *header) {
+                        const struct eap_header *header,
+                        const struct pcap_pkthdr *packetinfo,
+                        const u_char *packet) {
 //    printf("PackType: %d\n", pType);
     switch(pType){
         case EAP_SUCCESS:
             state = ONLINE;
             fprintf(stdout, ">>Protocol: EAP_SUCCESS\n");
             fprintf(stdout, "&&Info: Authorized Access to Network. \n");
+            print_server_info (packet, packetinfo->caplen);
             if (background){
                 background = 0;         /* 防止以后误触发 */
                 daemon_init();
@@ -202,6 +205,7 @@ action_by_eap_type(enum EAPType pType,
             if (state == ID_AUTHED){
                 fprintf(stdout, "&&Info: Invalid Password.\n");
             }
+            print_server_info (packet, packetinfo->caplen);
             pcap_breakloop (handle);
             break;
         case EAP_REQUEST_IDENTITY:
@@ -301,7 +305,7 @@ get_packet(u_char *args, const struct pcap_pkthdr *header,
     eap_header = (struct eap_header *)(packet + SIZE_ETHERNET);
 
     enum EAPType p_type = get_eap_type(eap_header);
-    action_by_eap_type(p_type, eap_header);
+    action_by_eap_type(p_type, eap_header, header, packet);
     return;
 }
 
@@ -330,23 +334,21 @@ init_frames()
     /****DCBA Private Info Tailer ***/
     u_char local_info_tailer[46] = {0};
 
-    /* *  local_info_tailer segment used by both RES/Idn and RES/MD5 frame * */
-    data_index = 0;
-    local_info_tailer[data_index++] = dhcp_on;
-    memcpy(local_info_tailer + data_index, &local_ip, 4);
-    data_index += 4;
-    memcpy(local_info_tailer + data_index, &local_mask, 4);
-    data_index += 4;
-    memcpy(local_info_tailer + data_index, &local_gateway, 4);
-    data_index += 4;
-    memcpy(local_info_tailer + data_index, &local_dns, 4);
-    data_index += 4;
-    char* username_md5 = get_md5_digest(username, username_length);
-    memcpy(local_info_tailer + data_index, username_md5, 16);
-    data_index += 16;
-    free(username_md5);
+    local_info_tailer[0] = dhcp_on;
 
-    strncpy ((char*)local_info_tailer + data_index, client_ver, 13);
+    struct dcba_tailer *dcba_info_tailer = 
+                (struct dcba_tailer *)(local_info_tailer + 1);
+    
+    dcba_info_tailer->local_ip          = local_ip;
+    dcba_info_tailer->local_mask        = local_mask;
+    dcba_info_tailer->local_gateway     = local_gateway;
+    dcba_info_tailer->local_dns         = local_dns;
+
+    char* username_md5 = get_md5_digest(username, username_length);
+    memcpy (dcba_info_tailer->username_md5, username_md5, 16);
+    free (username_md5);
+
+    strncpy ((char*)dcba_info_tailer->client_ver, client_ver, 13);
 
 //    print_hex (local_info_tailer, 46);
 
@@ -388,6 +390,7 @@ init_frames()
     data_index += username_length;
     memcpy (eap_response_md5ch + data_index, local_info_tailer, 46);
 
+//    print_hex (eap_response_md5ch, 14 + 4 + 6 + 16 + username_length + 46);
 }
 
 void 
@@ -415,20 +418,7 @@ void init_info()
     }
     username_length = strlen(username);
     password_length = strlen(password);
-/*
-    if (dhcp_on){
-        if (user_ip == NULL){
-            fprintf (stderr,"&&Info:DHCP Modol On with NO IP specified.\n"
-                            "Use default pseudo IP `169.254.216.45'.\n");
-            user_ip = "169.254.216.45";
-        }
-        if (user_mask == NULL) {
-            fprintf (stderr,"&&Info:DHCP Modol On with NO MASK specified.\n"
-                            "Use default MASK `255.255.0.0' .\n");
-            user_mask = "255.255.0.0";
-        }
-    }
-*/
+
     if (user_ip)
         local_ip = inet_addr (user_ip);
     else 
@@ -618,8 +608,6 @@ code_convert(char *from_charset, char *to_charset,
              char *inbuf, size_t inlen, char *outbuf, size_t outlen)
 {
     iconv_t cd;
-    char **pin = &inbuf;
-    char **pout = &outbuf;
 
     cd = iconv_open(to_charset,from_charset);
 
@@ -627,7 +615,7 @@ code_convert(char *from_charset, char *to_charset,
       return -1;
     memset(outbuf,0,outlen);
 
-    if (iconv(cd, pin, &inlen, pout, &outlen)==-1) 
+    if (iconv (cd, &inbuf, &inlen, &outbuf, &outlen)==-1) 
       return -1;
     iconv_close(cd);
     return 0;
@@ -640,18 +628,42 @@ code_convert(char *from_charset, char *to_charset,
  *  Description:  提取中文信息并打印输出
  * =====================================================================================
  */
-void 
-print_server_info (const u_char *str)
-{
-    if (!(str[0] == 0x2f && str[1] == 0xfc)) 
-        return;
 
-    char info_str [1024] = {0};
-    int length = str[2];
-    if (code_convert ("gb2312", "utf-8", (char*)str + 3, length, info_str, 200) != 0){
-        fprintf (stderr, "@@Error: Server info convert error.\n");
+void 
+print_server_info (const u_char *packet, u_int packetlength)
+{
+    const u_char *str;
+    
+    {
+        if ( *(packet + 0x2A) == 0x12) {
+            str = (packet + 0x2B);
+            goto FOUND_STR;
+        }
+        if (packetlength < 0x42)
+            return;
+        if ( *(packet + 0x42) == 0x12) {
+            str = (packet + 0x43);
+            goto FOUND_STR;
+        }
+        if (packetlength < 0x9A)
+            return;
+        if ( *(packet + 0x9A) == 0x12) {
+            str = (packet + 0x9B);
+            goto FOUND_STR;
+        }
+        if (packetlength < 0x120)
+            return;
+        if ( *(packet + 0x120) == 0x12) {
+            str = (packet + 0x121);
+            goto FOUND_STR;
+        }
         return;
     }
+
+    FOUND_STR:;
+
+    char info_str [1024] = {0};
+    code_convert ("gb2312", "utf-8", (char*)(str + 1), *str, info_str, 1024);
     fprintf (stdout, ">>Server Info: %s\n", info_str);
 }
 

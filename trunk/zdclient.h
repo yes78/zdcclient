@@ -39,7 +39,7 @@
 #include "md5.h"
 
 /* ZDClient Version */
-#define ZDC_VER "0.9"
+#define ZDC_VER "1.0"
 
 /* default snap length (maximum bytes per packet to capture) */
 #define SNAP_LEN 1518
@@ -58,9 +58,8 @@ struct eap_header {
     u_char eap_v_length;
     u_char eap_md5_challenge[16];
 };
-/*
+
 struct dcba_tailer {
-    u_char  dhcp_mode;
     u_int   local_ip;
     u_int   local_mask;
     u_int   local_gateway;
@@ -68,7 +67,7 @@ struct dcba_tailer {
     u_char  username_md5[16];
     u_char  client_ver[13];
 };
-*/
+
 enum EAPType {
     EAPOL_START,
     EAPOL_LOGOFF,
@@ -94,7 +93,9 @@ void    send_eap_packet(enum EAPType send_type);
 void    show_usage();
 char*   get_md5_digest(const char* str, size_t len);
 void    action_by_eap_type(enum EAPType pType, 
-                        const struct eap_header *header);
+                        const struct eap_header *header,
+                        const struct pcap_pkthdr *packetinfo,
+                        const u_char *packet);
 void    send_eap_packet(enum EAPType send_type);
 void    init_frames();
 void    init_info();
@@ -105,7 +106,7 @@ void    fill_password_md5(u_char attach_key[], u_int id);
 int     program_running_check();
 void    daemon_init(void);
 void    show_local_info();
-void    print_server_info (const u_char *str);
+void    print_server_info (const u_char *packet, u_int packetlength);
 int     code_convert(char *from_charset, char *to_charset,
              char *inbuf, size_t inlen, char *outbuf, size_t outlen);
 

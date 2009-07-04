@@ -1,0 +1,55 @@
+Index: zdclient.c
+===================================================================
+--- zdclient.c	(revision 46)
++++ zdclient.c	(working copy)
+@@ -161,16 +161,16 @@
+ int         exit_flag = 0;
+ 
+ // debug function
+-void 
+-print_hex(u_char *array, int count)
++void print_hex(u_char *array, int count)
+ {
+     int i;
+     for(i = 0; i < count; i++){
++        if ( !(i % 16))
++            printf ("\n");
+         printf("%02x ", array[i]);
+     }
+     printf("\n");
+ }
+-
+ void
+ show_usage()
+ {
+@@ -424,7 +424,8 @@
+     free(username_md5);
+     strncpy ((char*)local_info + data_index, client_ver, 13);
+ 
+-
++    print_hex (local_info, 46);
++    
+     /*****  EAPOL Header  *******/
+     u_char eapol_header[SIZE_ETHERNET];
+     data_index = 0;
+@@ -465,6 +466,9 @@
+     data_index += username_length;
+     memcpy (eap_response_ident + data_index, local_info, 46);
+ 
++    print_hex (eap_response_ident, 14 + 9 + username_length + 46);
++
++
+     /** EAP RESPONSE MD5 Challenge **/
+     u_char eap_resp_md5_head[10] = {0x01, 0x00, 
+                                    0x00, 6 + 16 + username_length + 46, /* eapol-length */
+@@ -481,6 +485,10 @@
+     memcpy (eap_response_md5ch + data_index, username, username_length);
+     data_index += username_length;
+     memcpy (eap_response_md5ch + data_index, local_info, 46);
++
++    print_hex (eap_response_md5ch, 14 + 4 + 6 + 16 + username_length + 46);
++
++
+ }
+ 
+ void 

@@ -3,15 +3,15 @@
  *
  *       Filename:  main.c
  *
- *    Description:  
+ *    Description:  main control for zdclient.
  *
  *        Version:  1.0
- *        Created:  06/06/2009 03:45:21 PM
+ *        Created:  07/06/2009 03:53:22 PM
  *       Revision:  none
  *       Compiler:  gcc
  *
- *         Author:  YOUR NAME (), 
- *        Company:  
+ *         Author:  BOYPT (PT), pentie@gmail.com
+ *        Company:  http://apt-blog.co.cc
  *
  * =====================================================================================
  */
@@ -23,7 +23,7 @@
 #include <fcntl.h>
 #include "zdclient.h"
 
-#define LOCKFILE "/var/run/zdclient.pid"
+#define LOCKFILE "/var/run/zdclient.pid"        /* 锁文件 */
 
 #define LOCKMODE (S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH)
 
@@ -109,40 +109,6 @@ program_running_check()
     return fl.l_pid;
 }
 
-
-
-int main(int argc, char **argv)
-{
-    init_arguments (&argc, &argv);
-    //打开锁文件
-    lockfile = open (LOCKFILE, O_RDWR | O_CREAT , LOCKMODE);
-    if (lockfile < 0){
-        perror ("Lockfile");
-        exit(1);
-    }
-
-    int ins_pid;
-    if ( (ins_pid = program_running_check ()) ) {
-        fprintf(stderr,"@@ERROR: ZDClient Already "
-                            "Running with PID %d\n", ins_pid);
-        exit(EXIT_FAILURE);
-    }
-
-    init_info();
-    init_device();
-    init_frames ();
-
-    signal (SIGINT, signal_interrupted);
-    signal (SIGTERM, signal_interrupted);    
-    show_local_info();
-
-//    send_eap_packet (EAPOL_LOGOFF);
-    send_eap_packet (EAPOL_START);
-
-	pcap_loop (handle, -1, get_packet, NULL);   /* main loop */
-    return 0;
-}
-
 static void
 signal_interrupted (int signo)
 {
@@ -152,6 +118,50 @@ signal_interrupted (int signo)
     pcap_close (handle);
     exit (EXIT_SUCCESS);
 }
+
+
+int main(int argc, char **argv)
+{
+    //初始化并解释程序的启动参数
+    init_arguments (&argc, &argv);
+
+    //打开锁文件
+    lockfile = open (LOCKFILE, O_RDWR | O_CREAT , LOCKMODE);
+    if (lockfile < 0){
+        perror ("Lockfile");
+        exit(1);
+    }
+
+    //检测程序的副本运行（文件锁）
+    int ins_pid;
+    if ( (ins_pid = program_running_check ()) ) {
+        fprintf(stderr,"@@ERROR: ZDClient Already "
+                            "Running with PID %d\n", ins_pid);
+        exit(EXIT_FAILURE);
+    }
+
+    //初始化用户信息
+    init_info();
+
+    //初始化设备，打开网卡，获得Mac、IP等信息
+    init_device();
+
+    //初始化发送帧的缓冲区
+    init_frames ();
+
+    signal (SIGINT, signal_interrupted);
+    signal (SIGTERM, signal_interrupted);    
+    show_local_info();
+
+    //发出第一个上线请求报文
+    send_eap_packet (EAPOL_START);
+
+    //进入回呼循环。以后的动作由回呼函数get_packet驱动，
+    //直到pcap_break_loop执行，退出程序。
+	pcap_loop (handle, -1, get_packet, NULL);   /* main loop */
+    return 0;
+}
+
 
 
 

@@ -290,6 +290,7 @@ send_eap_packet(enum EAPType send_type)
         case EAP_RESPONSE_IDENTITY:
             frame_data = eap_response_ident;
             frame_length = 14 + 9 + username_length + 46;
+            /* Hack ! KEEP_ALIVE报文跟RESP_IDNT报文只有这一个字节区别 */
             if (*(frame_data + 14 + 5) != 0x01){
                 *(frame_data + 14 + 5) = 0x01;
             }
@@ -303,6 +304,7 @@ send_eap_packet(enum EAPType send_type)
         case EAP_RESPONSE_IDENTITY_KEEP_ALIVE:
             frame_data = eap_response_ident;
             frame_length = 14 + 9 + username_length + 46;
+            /* Hack ! KEEP_ALIVE报文跟RESP_IDNT报文只有这一个字节区别 */
             if (*(frame_data + 14 + 5) != 0x03){
                 *(frame_data + 14 + 5) = 0x03;
             }

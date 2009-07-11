@@ -20,47 +20,56 @@
 //#include <assert.h>
 
 
-
+/* #####   GLOBLE VAR DEFINITIONS   ######################### */
+/*-----------------------------------------------------------------------------
+ *  程序的主控制变量
+ *-----------------------------------------------------------------------------*/
 char        errbuf[PCAP_ERRBUF_SIZE];  /* error buffer */
 enum STATE  state;                     /* program state */
 pcap_t      *handle;			   /* packet capture handle */
+u_char      muticast_mac[] =            /* 802.1x的认证服务器多播地址 */
+                        {0x01, 0x80, 0xc2, 0x00, 0x00, 0x03};
 
+
+/* #####   GLOBLE VAR DEFINITIONS   ###################
+ *-----------------------------------------------------------------------------
+ *  用户信息的赋值变量，由init_argument函数初始化
+ *-----------------------------------------------------------------------------*/
 int         dhcp_on = 0;               /* DHCP 模式标记 */
 int         background = 0;            /* 后台运行标记  */     
 char        *dev = NULL;               /* 连接的设备名 */
 char        *username = NULL;          
 char        *password = NULL;
-
-int         username_length;
-int         password_length;
-
 char        *user_gateway = NULL;      /* 由用户设定的四个报文参数 */
 char        *user_dns = NULL;
 char        *user_ip = NULL;
 char        *user_mask = NULL;
+char        *client_ver = NULL;         /* 报文协议版本号 */
+int         exit_flag = 0;
 
+/* #####   GLOBLE VAR DEFINITIONS   ######################### 
+ *-----------------------------------------------------------------------------
+ *  报文相关信息变量，由init_info 、init_device函数初始化。
+ *-----------------------------------------------------------------------------*/
+char        devname[64];
+size_t      username_length;
+size_t      password_length;
 u_int       local_ip;			       /* 网卡IP，网络序，下同 */
 u_int       local_mask;			       /* subnet mask */
 u_int       local_gateway = -1;
 u_int       local_dns = -1;
 u_char      local_mac[ETHER_ADDR_LEN]; /* MAC地址 */
+//int         use_pseudo_ip = 0;          /* DHCP模式网卡无IP情况下使用伪IP的标志 */
 
-char        *client_ver = NULL;         /* 报文协议版本号 */
-
-u_char      muticast_mac[] =            /* 802.1x的认证服务器多播地址 */
-                        {0x01, 0x80, 0xc2, 0x00, 0x00, 0x03};
-
-/* Packet Buffers */
+/* #####   TYPE DEFINITIONS   ######################### */
+/*-----------------------------------------------------------------------------
+ *  报文缓冲区，由init_frame函数初始化。
+ *-----------------------------------------------------------------------------*/
 u_char      eapol_start[18];            /* EAPOL START报文 */
 u_char      eapol_logoff[18];           /* EAPOL LogOff报文 */
 u_char      *eap_response_ident = NULL; /* EAP RESPON/IDENTITY报文 */
 u_char      *eap_response_md5ch = NULL; /* EAP RESPON/MD5 报文 */
 
-u_int       live_count = 0;             /* KEEP ALIVE 报文的计数值 */
-//pid_t       current_pid = 0;            /* 记录后台进程的pid */
-
-int         use_pseudo_ip = 0;          /* DHCP模式网卡无IP情况下使用伪IP的标志 */
-int         exit_flag = 0;
 
 // debug function
 void 
@@ -242,18 +251,17 @@ action_by_eap_type(enum EAPType pType,
             break;
         case EAP_REQUEST_IDENTITY_KEEP_ALIVE:
             if (state == ONLINE){
-                fprintf(stdout, ">>Protocol: REQUEST EAP_REQUEST_IDENTITY_KEEP_ALIVE (%d)\n",
-                                            live_count++);
+                fprintf(stdout, ">>Protocol: REQUEST EAP_REQUEST_IDENTITY_KEEP_ALIVE\n");
             }
 
-            // 使用伪IP模式认证成功后，获取真实IP，并写入RES/IDTY数据块
-            if (use_pseudo_ip){
-
-                //若获取成功，关闭伪IP模式标签
-                if (set_device_new_ip() == 0) {
-                    use_pseudo_ip = 0;
-                }
-            }
+//            // 使用伪IP模式认证成功后，获取真实IP，并写入RES/IDTY数据块
+//            if (use_pseudo_ip){
+//
+//                //若获取成功，关闭伪IP模式标签
+//                if (set_device_new_ip() == 0) {
+//                    use_pseudo_ip = 0;
+//                }
+//            }
 
             send_eap_packet(EAP_RESPONSE_IDENTITY_KEEP_ALIVE);
             break;
@@ -464,16 +472,6 @@ fill_password_md5(u_char attach_key[], u_int eap_id)
  * ===  FUNCTION  ======================================================================
  *         Name:  init_info
  *  Description:  初始化本地信息。
- *  涉及的全局变量：
- *  username            用户名
- *  password            用户密码
- *  username_length     用户名长度
- *  password_length     用户密码长度
- *  local_ip            本机IP
- *  local_mask          本机掩码
- *  local_gateway       网关地址
- *  local_dns           DNS地址
- *  client_ver          客户端版本
  * =====================================================================================
  */
 void init_info()
@@ -533,13 +531,23 @@ void init_info()
  */
 void init_device()
 {
-    struct bpf_program fp;			/* compiled filter program (expression) */
-    char filter_exp[51];/* filter expression [3] */
-//	bpf_u_int32 mask;			/* subnet mask */
-//	bpf_u_int32 net;			/* ip */
+    struct          bpf_program fp;			/* compiled filter program (expression) */
+    char            filter_exp[51];         /* filter expression [3] */
+    pcap_if_t       *alldevs;
+    pcap_addr_t     *addrs;
 
-    if(dev == NULL)
-	    dev = pcap_lookupdev(errbuf);
+	/* Retrieve the device list */
+	if(pcap_findalldevs(&alldevs, errbuf) == -1)
+	{
+		fprintf(stderr,"Error in pcap_findalldevs: %s\n", errbuf);
+		exit(1);
+	}
+
+    /* 使用第一块设备 */
+    if(dev == NULL) {
+        dev = alldevs->name;
+        strcpy (devname, dev);
+    }
 
 	if (dev == NULL) {
 		fprintf(stderr, "Couldn't find default device: %s\n",
@@ -561,6 +569,14 @@ void init_device()
 		exit(EXIT_FAILURE);
 	}
 
+    /* Get IP ADDR and MASK */
+    for (addrs = alldevs->addresses; addrs; addrs=addrs->next) {
+        if (addrs->addr->sa_family == AF_INET) {
+            local_ip = ((struct sockaddr_in *)addrs->addr)->sin_addr.s_addr;
+            local_mask = ((struct sockaddr_in *)addrs->netmask)->sin_addr.s_addr;
+        }
+    }
+
     /* get device basic infomation */
     struct ifreq ifr;
     int sock;
@@ -578,46 +594,6 @@ void init_device()
         exit(EXIT_FAILURE);
     }
     memcpy(local_mac, ifr.ifr_hwaddr.sa_data, ETHER_ADDR_LEN);
-    
-    //尝试获得网卡IP
-    if(ioctl(sock, SIOCGIFADDR, &ifr) < 0)
-    {
-        //获取不了IP
-        if (dhcp_on){ //DHCP模式下
-            use_pseudo_ip = 1; //设置标签
-            fprintf(stdout, "&&Info: No IP attached to %s, use `169.254.216.45' instead.\n",
-                    dev);
-        }
-        else {
-            perror("ioctl");
-            exit(EXIT_FAILURE);
-        }
-    }
-
-    //如果用户同时指定了IP和MASK，则优先使用(已在init_info转换完成)，
-    //否则由程序处理
-    if (!(local_ip && local_mask)) {
-
-        //获取不了IP，且用户没有定义IP，使用伪IP
-        if (use_pseudo_ip) {
-            local_ip = inet_addr ("169.254.216.45");
-            local_mask = inet_addr ("255.255.255.0");
-        }
-
-        //获取到IP，使用网卡的真实IP
-        else {
-            local_ip = ((struct  sockaddr_in*)&ifr.ifr_addr)->sin_addr.s_addr;
-
-            //获得子网掩码
-            if(ioctl(sock, SIOCGIFNETMASK, &ifr) < 0)
-            {
-                perror("ioctl");
-                exit(EXIT_FAILURE);
-            }
-            local_mask = ((struct sockaddr_in*)&ifr.ifr_netmask)->sin_addr.s_addr;
-        }
-    }
-
 
     /* construct the filter string */
     sprintf(filter_exp, "ether dst %02x:%02x:%02x:%02x:%02x:%02x"
@@ -640,7 +616,9 @@ void init_device()
 		exit(EXIT_FAILURE);
 	}
     pcap_freecode(&fp);
+    pcap_freealldevs(alldevs);
 }
+
 
 /* 
  * ===  FUNCTION  ======================================================================
@@ -649,35 +627,35 @@ void init_device()
  *  调用本函数重新获取本机IP并写入应答报文中。
  * =====================================================================================
  */
-int set_device_new_ip()
-{
-    struct ifreq ifr;
-    int sock;
-    
-    strcpy(ifr.ifr_name, dev);
-    if((sock = socket(AF_INET, SOCK_DGRAM, 0)) < 0)
-    {
-        perror("socket");
-        exit(EXIT_FAILURE);
-    }
-    if(ioctl(sock, SIOCGIFADDR, &ifr) < 0)
-    {
-        return -1;
-    }
-    if(ioctl(sock, SIOCGIFNETMASK, &ifr) < 0)
-    {
-        return -1;
-    }
-    local_ip = ((struct  sockaddr_in*)&ifr.ifr_addr)->sin_addr.s_addr;
-    local_mask = ((struct sockaddr_in*)&ifr.ifr_netmask)->sin_addr.s_addr;
-
-    size_t data_index = 14 + 9 + username_length + 1;
-    memcpy (eap_response_ident + data_index, &local_ip, 4);
-    data_index += 4;
-    memcpy (eap_response_ident + data_index, &local_mask, 4);
-    return 0;
-}
-
+//int set_device_new_ip()
+//{
+//    struct ifreq ifr;
+//    int sock;
+//    
+//    strcpy(ifr.ifr_name, dev);
+//    if((sock = socket(AF_INET, SOCK_DGRAM, 0)) < 0)
+//    {
+//        perror("socket");
+//        exit(EXIT_FAILURE);
+//    }
+//    if(ioctl(sock, SIOCGIFADDR, &ifr) < 0)
+//    {
+//        return -1;
+//    }
+//    if(ioctl(sock, SIOCGIFNETMASK, &ifr) < 0)
+//    {
+//        return -1;
+//    }
+//    local_ip = ((struct  sockaddr_in*)&ifr.ifr_addr)->sin_addr.s_addr;
+//    local_mask = ((struct sockaddr_in*)&ifr.ifr_netmask)->sin_addr.s_addr;
+//
+//    size_t data_index = 14 + 9 + username_length + 1;
+//    memcpy (eap_response_ident + data_index, &local_ip, 4);
+//    data_index += 4;
+//    memcpy (eap_response_ident + data_index, &local_mask, 4);
+//    return 0;
+//}
+//
 
 /* 
  * ===  FUNCTION  ======================================================================

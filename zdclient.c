@@ -737,7 +737,7 @@ print_server_info (const u_char *packet, u_int packetlength)
 void show_local_info ()
 {
     printf("######## ZDClient ver. %s #########\n", ZDC_VER);
-    printf("Device:     %s\n", dev);
+    printf("Device:     %s\n", devname);
     printf("MAC:        %02x:%02x:%02x:%02x:%02x:%02x\n",
                         local_mac[0],local_mac[1],local_mac[2],
                         local_mac[3],local_mac[4],local_mac[5]);

@@ -62,6 +62,7 @@ void
 daemon_init(void)
 {
 	pid_t	pid;
+    int     fd0;
 
 	if ( (pid = fork()) < 0)
 	    perror ("Fork");
@@ -72,8 +73,13 @@ daemon_init(void)
 	setsid();		/* become session leader */
 	chdir("/");		/* change working directory */
 	umask(0);		/* clear our file mode creation mask */
-
     flock_reg ();
+
+    fd0 = open ("/dev/null", O_RDWR);
+    dup2 (fd0, STDIN_FILENO);
+    dup2 (fd0, STDERR_FILENO);
+    dup2 (fd0, STDOUT_FILENO);
+    close (fd0);
 }
 
 
@@ -115,8 +121,6 @@ signal_interrupted (int signo)
     fprintf(stdout,"\n&&Info: USER Interrupted. \n");
     send_eap_packet(EAPOL_LOGOFF);
     pcap_breakloop (handle);
-    pcap_close (handle);
-    exit (EXIT_SUCCESS);
 }
 
 
@@ -159,6 +163,7 @@ int main(int argc, char **argv)
     //进入回呼循环。以后的动作由回呼函数get_packet驱动，
     //直到pcap_break_loop执行，退出程序。
 	pcap_loop (handle, -1, get_packet, NULL);   /* main loop */
+    pcap_close (handle);
     return 0;
 }
 

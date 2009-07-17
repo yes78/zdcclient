@@ -97,21 +97,24 @@ program_running_check()
         perror ("fcntl_get");
         exit(1);
     }
+
+    if (exit_flag) {
+        if (fl.l_type != F_UNLCK) {
+            if ( kill (fl.l_pid, SIGINT) == -1 )
+                perror("kill");
+            fprintf (stdout, "&&Info: Kill Signal Sent to PID %d.\n", fl.l_pid);
+        }
+        else 
+            fprintf (stderr, "&&Info: NO ZDClient Running.\n");
+        exit (EXIT_FAILURE);
+    }
+
     //没有锁，则给文件加锁，否则返回锁着文件的进程pid
     if (fl.l_type == F_UNLCK) {
         flock_reg ();
         return 0;
     }
-    else {
-        if (exit_flag) {
-            if ( kill (fl.l_pid, SIGINT) == -1 ) {
-                            perror("kill");
-                            exit(EXIT_FAILURE);
-            }
-            fprintf (stdout, "&&Info: Kill Signal Sent to PID %d.\n", fl.l_pid);
-            exit (EXIT_FAILURE);
-        }
-    }
+
     return fl.l_pid;
 }
 
@@ -162,7 +165,7 @@ int main(int argc, char **argv)
 
     //进入回呼循环。以后的动作由回呼函数get_packet驱动，
     //直到pcap_break_loop执行，退出程序。
-	pcap_loop (handle, -1, get_packet, NULL);   /* main loop */
+	pcap_loop (handle, -2, get_packet, NULL);   /* main loop */
     pcap_close (handle);
     return 0;
 }

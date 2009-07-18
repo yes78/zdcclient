@@ -736,15 +736,16 @@ print_server_info (const u_char *packet, u_int packetlength)
  */
 void show_local_info ()
 {
+    char buf[64];
     printf("######## ZDClient ver. %s #########\n", ZDC_VER);
     printf("Device:     %s\n", devname);
     printf("MAC:        %02x:%02x:%02x:%02x:%02x:%02x\n",
                         local_mac[0],local_mac[1],local_mac[2],
                         local_mac[3],local_mac[4],local_mac[5]);
-    printf("IP:         %s\n", inet_ntoa(*(struct in_addr*)&local_ip));
-    printf("MASK:       %s\n", inet_ntoa(*(struct in_addr*)&local_mask));
-    printf("Gateway:    %s\n", inet_ntoa(*(struct in_addr*)&local_gateway));
-    printf("DNS:        %s\n", inet_ntoa(*(struct in_addr*)&local_dns));
+    printf("IP:         %s\n", inet_ntop(AF_INET, &local_ip, buf, 32));
+    printf("MASK:       %s\n", inet_ntop(AF_INET, &local_mask, buf, 32));
+    printf("Gateway:    %s\n", inet_ntop(AF_INET, &local_gateway, buf, 32));
+    printf("DNS:        %s\n", inet_ntop(AF_INET, &local_dns, buf, 32));
     printf("Client ver: %s\n", client_ver);
     printf("####################################\n");
 }

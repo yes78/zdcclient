@@ -16,6 +16,7 @@
  * =====================================================================================
  */
 
+#include <assert.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <signal.h>
@@ -52,9 +53,9 @@ flock_reg ()
     }
  
     //把pid写入锁文件
-    ftruncate (lockfile, 0);    
+    assert (0 == ftruncate (lockfile, 0) );    
     sprintf (buf, "%ld", (long)getpid());
-    write (lockfile, buf, strlen(buf) + 1);
+    assert (-1 != write (lockfile, buf, strlen(buf) + 1));
 }
 
 
@@ -71,7 +72,7 @@ daemon_init(void)
 		exit(0);
     }
 	setsid();		/* become session leader */
-	chdir("/");		/* change working directory */
+	assert (0 == chdir("/tmp"));		/* change working directory */
 	umask(0);		/* clear our file mode creation mask */
     flock_reg ();
 

@@ -1,13 +1,13 @@
 ZDClient v1.1 Readme
 
 安装：
-    在安装前，请用户先编辑运行脚本文件runzdclient，将其中的username和password分别修改成您的帐号和密码并保存。 
+    在安装前，请用户先编辑运行脚本文件runzdclient，将其中的user和pass分别修改成您的帐号和密码并保存。 
 
     安装需要root权限，这通常使用sudo或者su -c
 
     sudo ./install 
 
-    安装程序会复制核心程序zdclient以及用户脚本runzdclient到系统目录/usr/bin，并设置相关属性，如果用户希望安装到其他目录，只需要在install后给出目的目录，如sudo ./install /usr/local/bin，但请保证目的目录在系统PATH环境变量内。 
+    安装程序会复制核心程序zdclient以及用户脚本runzdclient到系统目录/usr/bin，并设置相关属性，如果用户希望安装到其他目录，可给出目的路径，如sudo ./install /usr/local/bin，但请保证目的目录在系统PATH环境变量内。 
 
     成功执行安装将看到####Installation Done.####的提示。 
 

@@ -12,7 +12,7 @@ then
     INSTALL_PATH=$1
 fi
 
-if [[ -e 'zruijie' && -e 'runruijie' ]]
+if [[ -e 'zdclient' && -e 'runzdclient' ]]
 then
     echo $'\n#### Files intalling to '$INSTALL_PATH$' ####\n'
     install -v -m 4755 -o root zdclient $INSTALL_PATH

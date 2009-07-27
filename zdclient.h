@@ -102,7 +102,7 @@ void    init_info();
 void    init_device();
 void    init_arguments(int *argc, char ***argv);
 int     set_device_new_ip();
-void    fill_password_md5(u_char attach_key[], u_int id);
+void    fill_password_md5(uint8_t attach_key[], uint8_t eap_id);
 int     program_running_check();
 void    daemon_init(void);
 void    show_local_info();

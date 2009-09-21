@@ -418,7 +418,7 @@ init_frames()
     data_index += username_length;
     memcpy (eap_response_ident + data_index, local_info_tailer, 46);
 
-    print_hex (eap_response_ident, 14 + 9 + username_length + 46);
+//    print_hex (eap_response_ident, 14 + 9 + username_length + 46);
 
     /** EAP RESPONSE MD5 Challenge **/
     u_char eap_resp_md5_head[10] = {0x01, 0x00, 
@@ -437,7 +437,7 @@ init_frames()
     data_index += username_length;
     memcpy (eap_response_md5ch + data_index, local_info_tailer, 46);
 
-    print_hex (eap_response_md5ch, 14 + 4 + 6 + 16 + username_length + 46);
+//    print_hex (eap_response_md5ch, 14 + 4 + 6 + 16 + username_length + 46);
 }
 
 /* 
@@ -735,7 +735,7 @@ print_server_info (const u_char *packet, u_int packetlength)
 void show_local_info ()
 {
     char buf[64];
-    printf("######## ZDClient ver. %s #########\n", ZDC_VER);
+    printf("######## ZDClient ver. %s $Revision$ #########\n", ZDC_VER);
     printf("Device:     %s\n", devname);
     printf("MAC:        %02x:%02x:%02x:%02x:%02x:%02x\n",
                         local_mac[0],local_mac[1],local_mac[2],
@@ -745,7 +745,7 @@ void show_local_info ()
     printf("Gateway:    %s\n", inet_ntop(AF_INET, &local_gateway, buf, 32));
     printf("DNS:        %s\n", inet_ntop(AF_INET, &local_dns, buf, 32));
     printf("Client ver: %s\n", client_ver);
-    printf("####################################\n");
+    printf("##################################################\n");
 }
 
 

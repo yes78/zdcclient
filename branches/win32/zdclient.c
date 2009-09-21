@@ -16,7 +16,6 @@
  * =====================================================================================
  */
 #include    "zdclient.h"
-#include	"blog.h"
 #include	"eap_protocol.h"
 #include    <assert.h>
 

@@ -18,7 +18,7 @@
 #include 	<assert.h>
 #include	"eap_protocol.h"
 //#include	"zruijie.h"
-#include	"blog.h"
+//#include	"blog.h"
 #include	"md5.h"
 
 

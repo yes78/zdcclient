@@ -394,7 +394,6 @@ init_frames()
 
     char* username_md5 = get_md5_digest(username, username_length);
     memcpy (dcba_info_tailer->username_md5, username_md5, 16);
-    free (username_md5);
 
     strncpy ((char*)dcba_info_tailer->client_ver, client_ver, 13);
 
@@ -419,7 +418,7 @@ init_frames()
     data_index += username_length;
     memcpy (eap_response_ident + data_index, local_info_tailer, 46);
 
-//    print_hex (eap_response_ident, 14 + 9 + username_length + 46);
+    print_hex (eap_response_ident, 14 + 9 + username_length + 46);
 
     /** EAP RESPONSE MD5 Challenge **/
     u_char eap_resp_md5_head[10] = {0x01, 0x00, 
@@ -438,7 +437,7 @@ init_frames()
     data_index += username_length;
     memcpy (eap_response_md5ch + data_index, local_info_tailer, 46);
 
-//    print_hex (eap_response_md5ch, 14 + 4 + 6 + 16 + username_length + 46);
+    print_hex (eap_response_md5ch, 14 + 4 + 6 + 16 + username_length + 46);
 }
 
 /* 

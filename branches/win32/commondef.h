@@ -115,7 +115,7 @@ void update_interface_state(const char *msg);
 void edit_info_append (const char *msg);
 void thread_error_exit (const char *errmsg);
 void debug_msgbox (const char *fmt, ...);
-
+void renew_system_dhcp();
 #endif   /* ----- #ifndef COMMONDEF_INC  ----- */
 
 

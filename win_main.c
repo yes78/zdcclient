@@ -5,7 +5,7 @@
 #include "commondef.h"
 #include "eap_protocol.h"
 
-#define DIALOG_TITLE "ZDClient "
+#define DIALOG_TITLE "ZDClient "PROTOCOL_VER".2"
 
 #define REG_KEY_IF_INDEX    "if_index"
 #define REG_KEY_IF_NAME     "if_name"
@@ -263,10 +263,14 @@ void on_close_window_clicked()
 
 void on_button_exit_clicked ()
 {
+    extern pcap_t *handle;
+
     if (state == READY)
         on_program_quit();
-    else
+    else {
         send_eap_packet (EAPOL_LOGOFF);
+        pcap_breakloop (handle);
+    }
 }
 
 DWORD WINAPI eap_thread()

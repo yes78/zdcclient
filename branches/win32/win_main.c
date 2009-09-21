@@ -506,7 +506,7 @@ void ShowTrayMenu(HWND hwnd)
     }
 }
 
-void renew_system_dhcp()
+inline void renew_system_dhcp()
 {
     ShellExecute(hwndDlg, NULL, "ipconfig", "/renew", NULL, SW_HIDE);
 }

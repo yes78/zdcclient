@@ -52,8 +52,7 @@ action_eapol_success(const struct eap_header *eap_head,
     print_server_info (packet, packetinfo->caplen);
 
     if (dhcp_on)
-        system("ipconfig /renew");
-
+        renew_system_dhcp();
 }
 
 void

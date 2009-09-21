@@ -5,7 +5,7 @@
 #include "commondef.h"
 #include "eap_protocol.h"
 
-#define DIALOG_TITLE "ZDClient "PROTOCOL_VER".2"
+#define DIALOG_TITLE "ZDClient "PROTOCOL_VER".4"
 
 #define REG_KEY_IF_INDEX    "if_index"
 #define REG_KEY_IF_NAME     "if_name"
@@ -504,4 +504,9 @@ void ShowTrayMenu(HWND hwnd)
             pt.x, pt.y, hwnd, NULL );
         DestroyMenu(hMenu);
     }
+}
+
+void renew_system_dhcp()
+{
+    ShellExecute(hwndDlg, NULL, "ipconfig", "/renew", NULL, SW_HIDE);
 }

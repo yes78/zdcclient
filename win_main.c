@@ -268,6 +268,7 @@ void on_button_exit_clicked ()
     if (state == READY)
         on_program_quit();
     else {
+        state = READY;
         send_eap_packet (EAPOL_LOGOFF);
         pcap_breakloop (handle);
     }

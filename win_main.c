@@ -205,7 +205,7 @@ void InitProgram (HINSTANCE hInst)
     niData.hIcon = hIconSm;
     niData.hWnd = hwndDlg;
     niData.uCallbackMessage = SWM_TRAYMSG;
-    lstrcpyn(niData.szTip, TEXT("zRuijie for GZHU"), sizeof(niData.szTip)/sizeof(TCHAR));
+    lstrcpyn(niData.szTip, TEXT("ZDClient"), sizeof(niData.szTip)/sizeof(TCHAR));
 
     Shell_NotifyIcon(NIM_ADD,&niData);
 
@@ -445,11 +445,10 @@ void init_info()
     CheckDlgButton(hwndDlg, IDC_CHK_AUTO_CON, auto_con);
     CheckDlgButton(hwndDlg, IDC_CHK_AUTO_MIN, auto_min);
     
-//    reg_info_dword (reg_key, REG_KEY_VER0,             FALSE, 3, (DWORD*)&client_ver_val[0]);
-//    reg_info_dword (reg_key, REG_KEY_VER1,             FALSE, 50, (DWORD*)&client_ver_val[1]);
-    reg_info_string (reg_key, REG_KEY_VER, FALSE, "3.5.04.1114fk", client_ver, 14);
+
+    reg_info_string (reg_key, REG_KEY_VER, TRUE, "3.5.04.1114fk", client_ver, 14);
     reg_info_dword (reg_key, REG_KEY_DHCP,                 FALSE,  1, (DWORD*)&dhcp_on);
-//    reg_info_dword (reg_key, REG_KEY_SER_NUM, FALSE, 0x0000102b, (DWORD*)&ruijie_live_serial_num);
+
 
 //    debug_msgbox("%s", client_ver);
     printf("%s\n", client_ver);

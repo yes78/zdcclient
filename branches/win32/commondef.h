@@ -90,6 +90,7 @@ enum STATE {
     READY,
     CONNECTING,
     ONLINE,
+    KEEP_ALIVE,
 	LOGOFF
 };
 

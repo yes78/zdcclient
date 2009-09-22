@@ -91,6 +91,16 @@ action_eap_req_md5_chg(const struct eap_header *eap_head,
     send_eap_packet(EAP_RESPONSE_MD5_CHALLENGE);
 }
 
+void
+action_eap_keep_alive(const struct eap_header *eap_head,
+                        const struct pcap_pkthdr *packetinfo,
+                        const uint8_t *packet)
+{
+	state = KEEP_ALIVE;
+    eap_life_keeping[0x13] = eap_head->eap_id;
+    send_eap_packet(EAP_RESPONSE_IDENTITY_KEEP_ALIVE);
+}
+
 void 
 send_eap_packet(enum EAPType send_type)
 {
@@ -209,7 +219,9 @@ print_server_info (const uint8_t *packet, u_int packetlength)
 
     FOUND_STR:;
     size_t length = strlen((const char *)str);
-    strncpy (msg_buf, (const char *)str, length < 512 ? length : 512);
+    length = length < 512 ? length : 512;
+    strncpy (msg_buf, (const char *)str, length);
+    msg_buf[length] = '\n';
 	edit_info_append (msg_buf);
 }
 

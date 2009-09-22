@@ -157,7 +157,7 @@ action_by_eap_type(enum EAPType pType,
             action_eap_req_md5_chg (eap_head, packetinfo, packet);
             break;
         case EAP_REQUEST_IDENTITY_KEEP_ALIVE:
-            send_eap_packet(EAP_RESPONSE_IDENTITY_KEEP_ALIVE);
+            action_eap_keep_alive (eap_head, packetinfo, packet);
             return;
         default:
             return;

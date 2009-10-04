@@ -51,7 +51,7 @@ int         exit_flag = 0;
  *-----------------------------------------------------------------------------
  *  报文相关信息变量，由init_info 、init_device函数初始化。
  *-----------------------------------------------------------------------------*/
-char        devname[64];
+char        if_name[64];
 size_t      username_length;
 size_t      password_length;
 u_int       local_ip;			       /* 网卡IP，网络序，下同 */
@@ -544,7 +544,7 @@ void init_device()
     /* 使用第一块设备 */
     if(dev == NULL) {
         dev = alldevs->name;
-        strcpy (devname, dev);
+        strcpy (if_name, dev);
     }
 
 	if (dev == NULL) {
@@ -574,7 +574,7 @@ void init_device()
             local_mask = ((struct sockaddr_in *)addrs->netmask)->sin_addr.s_addr;
         }
     }
-
+#ifdef LINUX
     /* get device basic infomation */
     struct ifreq ifr;
     int sock;
@@ -592,6 +592,12 @@ void init_device()
         exit(EXIT_FAILURE);
     }
     memcpy(local_mac, ifr.ifr_hwaddr.sa_data, ETHER_ADDR_LEN);
+#else
+    if (bsd_get_mac (dev, local_mac) != 0) {
+		fprintf(stderr, "FATIL: Fail getting BSD/MACOS Mac Address.\n");
+		exit(EXIT_FAILURE);
+    }
+#endif
 
     /* construct the filter string */
     sprintf(filter_exp, "ether dst %02x:%02x:%02x:%02x:%02x:%02x"
@@ -736,7 +742,7 @@ void show_local_info ()
 {
     char buf[64];
     printf("######## ZDClient ver. %s $Revision$ #########\n", ZDC_VER);
-    printf("Device:     %s\n", devname);
+    printf("Device:     %s\n", if_name);
     printf("MAC:        %02x:%02x:%02x:%02x:%02x:%02x\n",
                         local_mac[0],local_mac[1],local_mac[2],
                         local_mac[3],local_mac[4],local_mac[5]);
@@ -831,4 +837,41 @@ void init_arguments(int *argc, char ***argv)
     }    
 }
 
+int bsd_get_mac(const char ifname[], char eth_addr[])
+{
+    struct ifreq *ifrp;
+    struct ifconf ifc;
+    char buffer[720];
+    int socketfd,error,len,space=0;
+    ifc.ifc_len=sizeof(buffer);
+    len=ifc.ifc_len;
+    ifc.ifc_buf=buffer;
+
+    socketfd=socket(AF_INET,SOCK_DGRAM,0);
+
+    if((error=ioctl(socketfd,SIOCGIFCONF,&ifc))<0)
+    {
+        perror("ioctl faild");
+        exit(1);
+    }
+    if(ifc.ifc_len<=len)
+    {
+        ifrp=ifc.ifc_req;
+        do
+        {
+            struct sockaddr *sa=&ifrp->ifr_addr;
+            
+            if(((struct sockaddr_dl *)sa)->sdl_type==IFT_ETHER) {
+                if (strcmp(ifname, ifrp->ifr_name) == 0){
+                    memcpy (eth_addr, LLADDR((struct sockaddr_dl *)&ifrp->ifr_addr), 6);
+                    return 0;
+                }
+            }
+            ifrp=(struct ifreq*)(sa->sa_len+(caddr_t)&ifrp->ifr_addr);
+            space+=(int)sa->sa_len+sizeof(ifrp->ifr_name);
+        }
+        while(space<ifc.ifc_len);
+    }
+    return 1;
+}
 

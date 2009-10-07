@@ -574,7 +574,7 @@ void init_device()
             local_mask = ((struct sockaddr_in *)addrs->netmask)->sin_addr.s_addr;
         }
     }
-#ifdef LINUX
+#ifdef __linux
     /* get device basic infomation */
     struct ifreq ifr;
     int sock;
@@ -837,6 +837,7 @@ void init_arguments(int *argc, char ***argv)
     }    
 }
 
+#ifndef __linux
 int bsd_get_mac(const char ifname[], char eth_addr[])
 {
     struct ifreq *ifrp;
@@ -874,4 +875,4 @@ int bsd_get_mac(const char ifname[], char eth_addr[])
     }
     return 1;
 }
-
+#endif

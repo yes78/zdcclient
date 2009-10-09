@@ -54,10 +54,10 @@ int         exit_flag = 0;
 char        dev_if_name[64];
 size_t      username_length;
 size_t      password_length;
-uint16_t       local_ip;			       /* 网卡IP，网络序，下同 */
-uint16_t       local_mask;			       /* subnet mask */
-uint16_t       local_gateway = -1;
-uint16_t       local_dns = -1;
+uint32_t       local_ip;			       /* 网卡IP，网络序，下同 */
+uint32_t       local_mask;			       /* subnet mask */
+uint32_t       local_gateway = -1;
+uint32_t       local_dns = -1;
 uint8_t      local_mac[ETHER_ADDR_LEN]; /* MAC地址 */
 //int         use_pseudo_ip = 0;          /* DHCP模式网卡无IP情况下使用伪IP的标志 */
 

@@ -56,15 +56,15 @@
 #define SIZE_ETHERNET 14
 
 struct eap_header {
-    u_char eapol_v;
-    u_char eapol_t;
-    u_short eapol_length;
-    u_char eap_t;
-    u_char eap_id;
-    u_short eap_length;
-    u_char eap_op;
-    u_char eap_v_length;
-    u_char eap_md5_challenge[16];
+    uint8_t eapol_v;
+    uint8_t eapol_t;
+    uint16_t eapol_length;
+    uint8_t eap_t;
+    uint8_t eap_id;
+    uint16_t eap_length;
+    uint8_t eap_op;
+    uint8_t eap_v_length;
+    uint8_t eap_md5_challenge[16];
 };
 
 struct dcba_tailer {
@@ -72,8 +72,8 @@ struct dcba_tailer {
     bpf_u_int32     local_mask;
     bpf_u_int32     local_gateway;
     bpf_u_int32     local_dns;
-    u_char          username_md5[16];
-    u_char          client_ver[13];
+    uint8_t          username_md5[16];
+    uint8_t          client_ver[13];
 };
 
 enum EAPType {
@@ -103,7 +103,7 @@ char*   get_md5_digest(const char* str, size_t len);
 void    action_by_eap_type(enum EAPType pType, 
                         const struct eap_header *header,
                         const struct pcap_pkthdr *packetinfo,
-                        const u_char *packet);
+                        const uint8_t *packet);
 void    send_eap_packet(enum EAPType send_type);
 void    init_frames();
 void    init_info();
@@ -114,14 +114,14 @@ void    fill_password_md5(uint8_t attach_key[], uint8_t eap_id);
 int     program_running_check();
 void    daemon_init(void);
 void    show_local_info();
-void    print_server_info (const u_char *packet, u_int packetlength);
+void    print_server_info (const uint8_t *packet, uint16_t packetlength);
 int     code_convert(char *from_charset, char *to_charset,
              char *inbuf, size_t inlen, char *outbuf, size_t outlen);
 
 
 void
-get_packet(u_char *args, const struct pcap_pkthdr *header, 
-    const u_char *packet);
+get_packet(uint8_t *args, const struct pcap_pkthdr *header, 
+    const uint8_t *packet);
 
 #ifndef __linux
 static int bsd_get_mac(const char ifname[], uint8_t eth_addr[]);

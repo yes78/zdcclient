@@ -838,7 +838,7 @@ void init_arguments(int *argc, char ***argv)
 }
 
 #ifndef __linux
-int bsd_get_mac(const char ifname[], char eth_addr[])
+int bsd_get_mac(const char ifname[], uint8_t eth_addr[])
 {
     struct ifreq *ifrp;
     struct ifconf ifc;

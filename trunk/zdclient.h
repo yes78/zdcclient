@@ -47,7 +47,7 @@
 #include "md5.h"
 
 /* ZDClient Version */
-#define ZDC_VER "1.1"
+#define ZDC_VER "0.12"
 
 /* default snap length (maximum bytes per packet to capture) */
 #define SNAP_LEN 1518

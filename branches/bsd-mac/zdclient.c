@@ -19,7 +19,9 @@
 
 //#include <assert.h>
 
-
+#ifndef __linux
+static int bsd_get_mac(const char ifname[], uint8_t eth_addr[]);
+#endif
 /* #####   GLOBLE VAR DEFINITIONS   ######################### */
 /*-----------------------------------------------------------------------------
  *  程序的主控制变量

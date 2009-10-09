@@ -123,6 +123,4 @@ void
 get_packet(uint8_t *args, const struct pcap_pkthdr *header, 
     const uint8_t *packet);
 
-#ifndef __linux
-static int bsd_get_mac(const char ifname[], uint8_t eth_addr[]);
-#endif
+

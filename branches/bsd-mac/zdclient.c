@@ -27,7 +27,7 @@
 char        errbuf[PCAP_ERRBUF_SIZE];  /* error buffer */
 enum STATE  state;                     /* program state */
 pcap_t      *handle;			   /* packet capture handle */
-u_char      muticast_mac[] =            /* 802.1x的认证服务器多播地址 */
+uint8_t      muticast_mac[] =            /* 802.1x的认证服务器多播地址 */
                         {0x01, 0x80, 0xc2, 0x00, 0x00, 0x03};
 
 
@@ -51,29 +51,29 @@ int         exit_flag = 0;
  *-----------------------------------------------------------------------------
  *  报文相关信息变量，由init_info 、init_device函数初始化。
  *-----------------------------------------------------------------------------*/
-char        if_name[64];
+char        dev_if_name[64];
 size_t      username_length;
 size_t      password_length;
-u_int       local_ip;			       /* 网卡IP，网络序，下同 */
-u_int       local_mask;			       /* subnet mask */
-u_int       local_gateway = -1;
-u_int       local_dns = -1;
-u_char      local_mac[ETHER_ADDR_LEN]; /* MAC地址 */
+uint16_t       local_ip;			       /* 网卡IP，网络序，下同 */
+uint16_t       local_mask;			       /* subnet mask */
+uint16_t       local_gateway = -1;
+uint16_t       local_dns = -1;
+uint8_t      local_mac[ETHER_ADDR_LEN]; /* MAC地址 */
 //int         use_pseudo_ip = 0;          /* DHCP模式网卡无IP情况下使用伪IP的标志 */
 
 /* #####   TYPE DEFINITIONS   ######################### */
 /*-----------------------------------------------------------------------------
  *  报文缓冲区，由init_frame函数初始化。
  *-----------------------------------------------------------------------------*/
-u_char      eapol_start[18];            /* EAPOL START报文 */
-u_char      eapol_logoff[18];           /* EAPOL LogOff报文 */
-u_char      *eap_response_ident = NULL; /* EAP RESPON/IDENTITY报文 */
-u_char      *eap_response_md5ch = NULL; /* EAP RESPON/MD5 报文 */
+uint8_t      eapol_start[18];            /* EAPOL START报文 */
+uint8_t      eapol_logoff[18];           /* EAPOL LogOff报文 */
+uint8_t      *eap_response_ident = NULL; /* EAP RESPON/IDENTITY报文 */
+uint8_t      *eap_response_md5ch = NULL; /* EAP RESPON/MD5 报文 */
 
 
 // debug function
 void 
-print_hex(u_char *array, int count)
+print_hex(uint8_t *array, int count)
 {
     int i;
     for(i = 0; i < count; i++){
@@ -207,7 +207,7 @@ void
 action_by_eap_type(enum EAPType pType, 
                         const struct eap_header *header,
                         const struct pcap_pkthdr *packetinfo,
-                        const u_char *packet) {
+                        const uint8_t *packet) {
 //    printf("PackType: %d\n", pType);
     switch(pType){
         case EAP_SUCCESS:
@@ -244,7 +244,7 @@ action_by_eap_type(enum EAPType pType,
         case EAP_REQUETS_MD5_CHALLENGE:
             state = ID_AUTHED;
             fprintf(stdout, ">>Protocol: REQUEST MD5-Challenge(PASSWORD)\n");
-            fill_password_md5((u_char*)header->eap_md5_challenge, header->eap_id);
+            fill_password_md5((uint8_t*)header->eap_md5_challenge, header->eap_id);
             send_eap_packet(EAP_RESPONSE_MD5_CHALLENGE);
             break;
         case EAP_REQUEST_IDENTITY_KEEP_ALIVE:
@@ -278,7 +278,7 @@ action_by_eap_type(enum EAPType pType,
 void 
 send_eap_packet(enum EAPType send_type)
 {
-    u_char *frame_data;
+    uint8_t *frame_data;
     int     frame_length = 0;
     switch(send_type){
         case EAPOL_START:
@@ -335,8 +335,8 @@ send_eap_packet(enum EAPType send_type)
  * =====================================================================================
  */
 void
-get_packet(u_char *args, const struct pcap_pkthdr *header, 
-    const u_char *packet)
+get_packet(uint8_t *args, const struct pcap_pkthdr *header, 
+    const uint8_t *packet)
 {
 	/* declare pointers to packet headers */
 	const struct ether_header *ethernet;  /* The ethernet header [1] */
@@ -363,24 +363,24 @@ init_frames()
     int data_index;
 
     /*****  EAPOL Header  *******/
-    u_char eapol_eth_header[SIZE_ETHERNET];
+    uint8_t eapol_eth_header[SIZE_ETHERNET];
     struct ether_header *eth = (struct ether_header *)eapol_eth_header;
     memcpy (eth->ether_dhost, muticast_mac, 6);
     memcpy (eth->ether_shost, local_mac, 6);
     eth->ether_type =  htons (0x888e);
     
     /**** EAPol START ****/
-    u_char start_data[4] = {0x01, 0x01, 0x00, 0x00};
+    uint8_t start_data[4] = {0x01, 0x01, 0x00, 0x00};
     memcpy (eapol_start, eapol_eth_header, 14);
     memcpy (eapol_start + 14, start_data, 4);
 
     /****EAPol LOGOFF ****/
-    u_char logoff_data[4] = {0x01, 0x02, 0x00, 0x00};
+    uint8_t logoff_data[4] = {0x01, 0x02, 0x00, 0x00};
     memcpy (eapol_logoff, eapol_eth_header, 14);
     memcpy (eapol_logoff + 14, logoff_data, 4);
 
     /****DCBA Private Info Tailer ***/
-    u_char local_info_tailer[46] = {0};
+    uint8_t local_info_tailer[46] = {0};
 
     local_info_tailer[0] = dhcp_on;
 
@@ -400,7 +400,7 @@ init_frames()
 //    print_hex (local_info_tailer, 46);
 
     /* EAP RESPONSE IDENTITY */
-    u_char eap_resp_iden_head[9] = {0x01, 0x00, 
+    uint8_t eap_resp_iden_head[9] = {0x01, 0x00, 
                                     0x00, 5 + 46 + username_length,  /* eapol_length */
                                     0x02, 0x01, 
                                     0x00, 5 + username_length,       /* eap_length */
@@ -421,7 +421,7 @@ init_frames()
 //    print_hex (eap_response_ident, 14 + 9 + username_length + 46);
 
     /** EAP RESPONSE MD5 Challenge **/
-    u_char eap_resp_md5_head[10] = {0x01, 0x00, 
+    uint8_t eap_resp_md5_head[10] = {0x01, 0x00, 
                                    0x00, 6 + 16 + username_length + 46, /* eapol-length */
                                    0x02, 0x02, 
                                    0x00, 6 + 16 + username_length, /* eap-length */
@@ -544,7 +544,7 @@ void init_device()
     /* 使用第一块设备 */
     if(dev == NULL) {
         dev = alldevs->name;
-        strcpy (if_name, dev);
+        strcpy (dev_if_name, dev);
     }
 
 	if (dev == NULL) {
@@ -694,9 +694,9 @@ code_convert(char *from_charset, char *to_charset,
  */
 
 void 
-print_server_info (const u_char *packet, u_int packetlength)
+print_server_info (const uint8_t *packet, uint16_t packetlength)
 {
-    const u_char *str;
+    const uint8_t *str;
     
     {
         if ( *(packet + 0x2A) == 0x12) {
@@ -742,7 +742,7 @@ void show_local_info ()
 {
     char buf[64];
     printf("######## ZDClient ver. %s $Revision$ #########\n", ZDC_VER);
-    printf("Device:     %s\n", if_name);
+    printf("Device:     %s\n", dev_if_name);
     printf("MAC:        %02x:%02x:%02x:%02x:%02x:%02x\n",
                         local_mac[0],local_mac[1],local_mac[2],
                         local_mac[3],local_mac[4],local_mac[5]);

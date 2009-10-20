@@ -27,7 +27,7 @@ SVN工具大多数都能跨平台使用，以上只是个别推荐。
 
 === 主干代码 ===
 
-查看[../source/checkout Checkout]页面；win版本的代码在branches/win32内
+查看[../../source/checkout Checkout]页面；win版本的代码在branches/win32内
 
 例如需要checkout神州数码主干版本的代码，运行：
 {{{
@@ -38,14 +38,12 @@ svn checkout http://zdcclient.googlecode.com/svn/trunk zdcclient
 
 Tag内是各个release的版本的固定代码，通常相对稳定，但不一定能正常工作。
 
-请先查看[../source/browse/tags Tags]内的版本标记；
+请先查看[../../source/browse/tags Tags]内的版本标记；
 
 例如需要checkout神州数码0.7版本的代码，运行：
 {{{
 svn checkout http://zdcclient.googlecode.com/svn/tags/release_0.7 zdcclient
 }}}
-
-
 
 
 = 编译代码 =

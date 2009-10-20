@@ -8,7 +8,7 @@
 
 = 获取代码 =
 
-本项目源码使用Google Code提供的SVN服务存放，可通过[../source/ Source]->[../source/checkout Checkout]页面得到相关提示。
+本项目源码使用Google Code提供的SVN服务存放，可通过[../../source/ Source]->[../../source/checkout Checkout]页面得到相关提示。
 
 == 获取适合您所用系统的SVN工具（Subversion） ==
 

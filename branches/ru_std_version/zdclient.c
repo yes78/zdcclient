@@ -67,10 +67,10 @@ uint8_t      local_mac[ETHER_ADDR_LEN]; /* MAC地址 */
 /*-----------------------------------------------------------------------------
  *  报文缓冲区，由init_frame函数初始化。
  *-----------------------------------------------------------------------------*/
-uint8_t      eapol_start[18];            /* EAPOL START报文 */
-uint8_t      eapol_logoff[18];           /* EAPOL LogOff报文 */
-uint8_t      *eap_response_ident = NULL; /* EAP RESPON/IDENTITY报文 */
-uint8_t      *eap_response_md5ch = NULL; /* EAP RESPON/MD5 报文 */
+uint8_t      eapol_start[64];            /* EAPOL START报文 */
+uint8_t      eapol_logoff[64];           /* EAPOL LogOff报文 */
+uint8_t      eap_response_ident[128]; /* EAP RESPON/IDENTITY报文 */
+uint8_t      eap_response_md5ch[128]; /* EAP RESPON/MD5 报文 */
 
 
 // debug function
@@ -285,19 +285,19 @@ send_eap_packet(enum EAPType send_type)
     switch(send_type){
         case EAPOL_START:
             state = STARTED;
-            frame_data= eapol_start;
-            frame_length = 14 + 4;
+            frame_data = eapol_start;
+            frame_length = sizeof(frame_data);
             fprintf(stdout, ">>Protocol: SEND EAPOL-Start\n");
             break;
         case EAPOL_LOGOFF:
             state = READY;
             frame_data = eapol_logoff;
-            frame_length = 14 + 4;
+            frame_length = sizeof(frame_data);
             fprintf(stdout, ">>Protocol: SEND EAPOL-Logoff\n");
             break;
         case EAP_RESPONSE_IDENTITY:
             frame_data = eap_response_ident;
-            frame_length = 14 + 9 + username_length + 46;
+            frame_length = sizeof(frame_data);
             /* Hack ! KEEP_ALIVE报文跟RESP_IDNT报文只有这一个字节区别 */
             if (*(frame_data + 14 + 5) != 0x01){
                 *(frame_data + 14 + 5) = 0x01;
@@ -306,12 +306,12 @@ send_eap_packet(enum EAPType send_type)
             break;
         case EAP_RESPONSE_MD5_CHALLENGE:
             frame_data = eap_response_md5ch;
-            frame_length = 14 + 10 + 16 + username_length + 46;
+            frame_length = sizeof(frame_data);
             fprintf(stdout, ">>Protocol: SEND EAP-Response/Md5-Challenge\n");
             break;
         case EAP_RESPONSE_IDENTITY_KEEP_ALIVE:
             frame_data = eap_response_ident;
-            frame_length = 14 + 9 + username_length + 46;
+            frame_length = sizeof(frame_data);
             /* Hack ! KEEP_ALIVE报文跟RESP_IDNT报文只有这一个字节区别 */
             if (*(frame_data + 14 + 5) != 0x03){
                 *(frame_data + 14 + 5) = 0x03;
@@ -373,43 +373,28 @@ init_frames()
     
     /**** EAPol START ****/
     uint8_t start_data[4] = {0x01, 0x01, 0x00, 0x00};
+    memset (eapol_start, 0x5a, sizeof(eapol_start));
     memcpy (eapol_start, eapol_eth_header, 14);
     memcpy (eapol_start + 14, start_data, 4);
 
     /****EAPol LOGOFF ****/
     uint8_t logoff_data[4] = {0x01, 0x02, 0x00, 0x00};
+    memset (eapol_logoff, 0x5a, sizeof(eapol_logoff));
     memcpy (eapol_logoff, eapol_eth_header, 14);
     memcpy (eapol_logoff + 14, logoff_data, 4);
 
     /****DCBA Private Info Tailer ***/
-    uint8_t local_info_tailer[46] = {0};
-
-    local_info_tailer[0] = dhcp_on;
-
-    struct dcba_tailer *dcba_info_tailer = 
-                (struct dcba_tailer *)(local_info_tailer + 1);
-    
-    dcba_info_tailer->local_ip          = local_ip;
-    dcba_info_tailer->local_mask        = local_mask;
-    dcba_info_tailer->local_gateway     = local_gateway;
-    dcba_info_tailer->local_dns         = local_dns;
-
-    char* username_md5 = get_md5_digest(username, username_length);
-    memcpy (dcba_info_tailer->username_md5, username_md5, 16);
-
-    strncpy ((char*)dcba_info_tailer->client_ver, client_ver, 13);
 
 //    print_hex (local_info_tailer, 46);
 
     /* EAP RESPONSE IDENTITY */
     uint8_t eap_resp_iden_head[9] = {0x01, 0x00, 
-                                    0x00, 5 + 46 + username_length,  /* eapol_length */
+                                    0x00, 5 + username_length,  /* eapol_length */
                                     0x02, 0x01, 
                                     0x00, 5 + username_length,       /* eap_length */
                                     0x01};
     
-    eap_response_ident = malloc (14 + 9 + username_length + 46);
-    memset (eap_response_ident, 0, 14 + 9 + username_length + 46);
+    memset (eap_response_ident, 0x5a, sizeof(eap_response_ident));
 
     data_index = 0;
     memcpy (eap_response_ident + data_index, eapol_eth_header, 14);
@@ -418,17 +403,15 @@ init_frames()
     data_index += 9;
     memcpy (eap_response_ident + data_index, username, username_length);
     data_index += username_length;
-    memcpy (eap_response_ident + data_index, local_info_tailer, 46);
 
 //    print_hex (eap_response_ident, 14 + 9 + username_length + 46);
 
     /** EAP RESPONSE MD5 Challenge **/
     uint8_t eap_resp_md5_head[10] = {0x01, 0x00, 
-                                   0x00, 6 + 16 + username_length + 46, /* eapol-length */
+                                   0x00, 6 + 16 + username_length, /* eapol-length */
                                    0x02, 0x02, 
                                    0x00, 6 + 16 + username_length, /* eap-length */
                                    0x04, 0x10};
-    eap_response_md5ch = malloc (14 + 4 + 6 + 16 + username_length + 46);
 
     data_index = 0;
     memcpy (eap_response_md5ch + data_index, eapol_eth_header, 14);
@@ -437,7 +420,6 @@ init_frames()
     data_index += 26;// 剩余16位在收到REQ/MD5报文后由fill_password_md5填充 
     memcpy (eap_response_md5ch + data_index, username, username_length);
     data_index += username_length;
-    memcpy (eap_response_md5ch + data_index, local_info_tailer, 46);
 
 //    print_hex (eap_response_md5ch, 14 + 4 + 6 + 16 + username_length + 46);
 }
@@ -624,44 +606,6 @@ void init_device()
     pcap_freecode(&fp);
     pcap_freealldevs(alldevs);
 }
-
-
-/* 
- * ===  FUNCTION  ======================================================================
- *         Name:  set_device_new_ip
- *  Description:  用于DHCP模式下，当成功验证后并收到服务器发来的保鲜报文，
- *  调用本函数重新获取本机IP并写入应答报文中。
- * =====================================================================================
- */
-//int set_device_new_ip()
-//{
-//    struct ifreq ifr;
-//    int sock;
-//    
-//    strcpy(ifr.ifr_name, dev);
-//    if((sock = socket(AF_INET, SOCK_DGRAM, 0)) < 0)
-//    {
-//        perror("socket");
-//        exit(EXIT_FAILURE);
-//    }
-//    if(ioctl(sock, SIOCGIFADDR, &ifr) < 0)
-//    {
-//        return -1;
-//    }
-//    if(ioctl(sock, SIOCGIFNETMASK, &ifr) < 0)
-//    {
-//        return -1;
-//    }
-//    local_ip = ((struct  sockaddr_in*)&ifr.ifr_addr)->sin_addr.s_addr;
-//    local_mask = ((struct sockaddr_in*)&ifr.ifr_netmask)->sin_addr.s_addr;
-//
-//    size_t data_index = 14 + 9 + username_length + 1;
-//    memcpy (eap_response_ident + data_index, &local_ip, 4);
-//    data_index += 4;
-//    memcpy (eap_response_ident + data_index, &local_mask, 4);
-//    return 0;
-//}
-//
 
 /* 
  * ===  FUNCTION  ======================================================================

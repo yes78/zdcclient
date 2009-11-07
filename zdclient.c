@@ -286,18 +286,18 @@ send_eap_packet(enum EAPType send_type)
         case EAPOL_START:
             state = STARTED;
             frame_data = eapol_start;
-            frame_length = sizeof(frame_data);
+            frame_length = 64;
             fprintf(stdout, ">>Protocol: SEND EAPOL-Start\n");
             break;
         case EAPOL_LOGOFF:
             state = READY;
             frame_data = eapol_logoff;
-            frame_length = sizeof(frame_data);
+            frame_length = 64;
             fprintf(stdout, ">>Protocol: SEND EAPOL-Logoff\n");
             break;
         case EAP_RESPONSE_IDENTITY:
             frame_data = eap_response_ident;
-            frame_length = sizeof(frame_data);
+            frame_length = 64;
             /* Hack ! KEEP_ALIVE报文跟RESP_IDNT报文只有这一个字节区别 */
             if (*(frame_data + 14 + 5) != 0x01){
                 *(frame_data + 14 + 5) = 0x01;
@@ -306,12 +306,12 @@ send_eap_packet(enum EAPType send_type)
             break;
         case EAP_RESPONSE_MD5_CHALLENGE:
             frame_data = eap_response_md5ch;
-            frame_length = sizeof(frame_data);
+            frame_length = 64;
             fprintf(stdout, ">>Protocol: SEND EAP-Response/Md5-Challenge\n");
             break;
         case EAP_RESPONSE_IDENTITY_KEEP_ALIVE:
             frame_data = eap_response_ident;
-            frame_length = sizeof(frame_data);
+            frame_length = 64;
             /* Hack ! KEEP_ALIVE报文跟RESP_IDNT报文只有这一个字节区别 */
             if (*(frame_data + 14 + 5) != 0x03){
                 *(frame_data + 14 + 5) = 0x03;

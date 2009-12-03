@@ -373,13 +373,13 @@ init_frames()
     
     /**** EAPol START ****/
     uint8_t start_data[4] = {0x01, 0x01, 0x00, 0x00};
-    memset (eapol_start, 0x5a, sizeof(eapol_start));
+    memset (eapol_start, 0xa5, sizeof(eapol_start));
     memcpy (eapol_start, eapol_eth_header, 14);
     memcpy (eapol_start + 14, start_data, 4);
 
     /****EAPol LOGOFF ****/
     uint8_t logoff_data[4] = {0x01, 0x02, 0x00, 0x00};
-    memset (eapol_logoff, 0x5a, sizeof(eapol_logoff));
+    memset (eapol_logoff, 0xa5, sizeof(eapol_logoff));
     memcpy (eapol_logoff, eapol_eth_header, 14);
     memcpy (eapol_logoff + 14, logoff_data, 4);
 
@@ -394,7 +394,7 @@ init_frames()
                                     0x00, 5 + username_length,       /* eap_length */
                                     0x01};
     
-    memset (eap_response_ident, 0x5a, sizeof(eap_response_ident));
+    memset (eap_response_ident, 0xa5, sizeof(eap_response_ident));
 
     data_index = 0;
     memcpy (eap_response_ident + data_index, eapol_eth_header, 14);

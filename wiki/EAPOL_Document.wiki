@@ -1,7 +1,7 @@
 #labels Phase-Design,EAPOL
 =深入了解校园网802.1x认证的EAP协议(1)——EAP的总体流程=
 
-原文：http://apt-blog.net/archives/423.html
+原文：http://apt-blog.net/details_about_802_1x_in_campus_authentication_1
 
 EAP（Extensible Authentication Protocol），是一个普遍使用的认证机制，详细介绍可见Wikipedia。本文介绍的，是被广泛使用在国内高校校园网的认证机制使用的EAP协议，暂不具体地说明某个品牌的私有协议如何如何，而是从整体角度看EAP协议如何工作，从一个第三方Supplicant客户端的开发者角度解释EAP的通信机制。在后续的章节将继续介绍PT接触过的几种认证协议中，国内的“标准践踏者们”如何实现各种变态的认证协议。
 
